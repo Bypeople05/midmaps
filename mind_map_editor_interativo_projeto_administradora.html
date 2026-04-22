@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mind Map Editor Interativo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
       --page-bg: #f5f8fb;
@@ -32,7 +36,7 @@
         radial-gradient(circle at top left, rgba(104,188,192,0.20), transparent 34%),
         linear-gradient(180deg, #ffffff 0%, var(--page-bg) 42%, #edf4f7 100%);
       color: var(--text-main);
-      font-family: "Segoe UI", Arial, sans-serif;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
       min-height: 100vh;
     }
     .sr-only {
@@ -55,9 +59,15 @@
       cursor: pointer;
       font: inherit;
       font-size: 13px;
-      box-shadow: 0 1px 2px rgba(16, 40, 56, 0.05);
+      box-shadow: 0 8px 20px rgba(42, 93, 112, 0.08);
+      transition: transform 0.14s, box-shadow 0.14s, background 0.14s;
     }
-    button:hover { background: #f2f8fa; border-color: #9bd0d3; }
+    button:hover {
+      background: #f2f8fa;
+      border-color: #9bd0d3;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(42, 93, 112, 0.12);
+    }
     .app-shell {
       max-width: 1680px;
       margin: 0 auto;
@@ -115,8 +125,37 @@
       background: rgba(255,255,255,0.78);
       border: 1px solid var(--border);
       border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(32, 87, 106, 0.07);
     }
-    .toolbar .primary {
+    .toolbar button,
+    .node-menu button,
+    .presentation-exit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 38px;
+    }
+    .toolbar svg,
+    .node-menu svg,
+    .presentation-exit svg {
+      width: 17px;
+      height: 17px;
+      stroke-width: 2;
+    }
+    .icon-btn {
+      width: 38px;
+      padding: 0;
+      flex: 0 0 auto;
+    }
+    .toolbar-separator {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+      margin: 0 2px;
+    }
+    .toolbar .primary,
+    .presentation-exit {
       background: linear-gradient(135deg, var(--brand-blue), var(--brand-teal));
       color: #ffffff;
       border-color: transparent;
@@ -125,37 +164,6 @@
       background: #168c72;
       color: #ffffff;
       border-color: transparent;
-    }
-    .appearance-panel {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
-      gap: 10px;
-      align-items: end;
-      margin-bottom: 12px;
-      padding: 12px;
-      background: var(--panel-bg);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(32, 87, 106, 0.07);
-    }
-    .color-field {
-      display: grid;
-      gap: 6px;
-      min-width: 0;
-    }
-    .color-field label {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-    .color-field input {
-      width: 100%;
-      height: 36px;
-      padding: 3px;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      background: #ffffff;
-      cursor: pointer;
     }
     .hint-panel {
       display:flex;
@@ -215,6 +223,66 @@
       border: 1px solid rgba(216,228,236,0.9);
       border-radius: 999px;
       padding: 6px 10px;
+    }
+    .node-menu {
+      position: fixed;
+      z-index: 900;
+      display: none;
+      align-items: center;
+      gap: 9px;
+      padding: 9px;
+      background: rgba(255,255,255,0.94);
+      border: 1px solid rgba(206,222,231,0.95);
+      border-radius: 16px;
+      box-shadow: 0 18px 48px rgba(28, 71, 88, 0.18);
+      backdrop-filter: blur(14px);
+    }
+    .node-menu.show { display: flex; }
+    .node-menu::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -7px;
+      width: 14px;
+      height: 14px;
+      background: rgba(255,255,255,0.94);
+      border-right: 1px solid rgba(206,222,231,0.95);
+      border-bottom: 1px solid rgba(206,222,231,0.95);
+      transform: translateX(-50%) rotate(45deg);
+    }
+    .node-color-field {
+      display: grid;
+      gap: 4px;
+      min-width: 56px;
+    }
+    .node-color-field label {
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .node-color-field input {
+      width: 56px;
+      height: 32px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+    .node-menu .danger {
+      color: #b42335;
+      border-color: rgba(180,35,53,0.18);
+    }
+    .presentation-exit {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 1100;
+      display: none;
+      padding: 9px 13px;
     }
     .status-badge {
       position: absolute;
@@ -297,7 +365,36 @@
       .topbar { align-items: flex-start; flex-direction: column; }
       .brand { flex-direction: column; align-items: flex-start; }
       .brand-copy { padding-left: 0; border-left: 0; }
-      .appearance-panel { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .node-menu {
+        max-width: calc(100vw - 24px);
+        flex-wrap: wrap;
+      }
+    }
+    body.presentation-mode {
+      padding: 0;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    body.presentation-mode .app-shell {
+      max-width: none;
+      margin: 0;
+    }
+    body.presentation-mode .topbar,
+    body.presentation-mode .toolbar,
+    body.presentation-mode .hint-panel,
+    body.presentation-mode #hint,
+    body.presentation-mode #zoom-controls {
+      display: none;
+    }
+    body.presentation-mode #mindmap-container {
+      height: 100vh;
+      border: 0;
+      border-radius: 0;
+      background: #ffffff;
+      box-shadow: none;
+    }
+    body.presentation-mode .presentation-exit {
+      display: inline-flex;
     }
   </style>
 </head>
@@ -313,51 +410,52 @@
       <p class="brand-subtitle">Organize ideias, projetos e processos com visual personalizavel.</p>
     </div>
   </div>
-  <button id="btn-fit-top" class="primary" type="button">Centralizar mapa</button>
+  <button id="btn-fit-top" class="primary" type="button">
+    <i data-lucide="scan"></i>
+    <span>Centralizar</span>
+  </button>
 </header>
 
 <div class="toolbar">
-  <button id="btn-ai" class="primary" type="button">Gerar do texto</button>
-  <button id="btn-export-text" class="success" type="button">Exportar texto</button>
-  <button id="btn-expand-all" type="button">Expandir tudo</button>
-  <button id="btn-collapse-all" type="button">Recolher tudo</button>
-  <button id="btn-reset" type="button">Restaurar padrao</button>
-  <button id="btn-export" type="button">Exportar JSON</button>
-  <button id="btn-import" type="button">Importar JSON</button>
-  <button id="btn-fit" type="button">Centralizar</button>
+  <button id="btn-ai" class="primary" type="button" title="Gerar do texto">
+    <i data-lucide="sparkles"></i>
+    <span>Gerar do texto</span>
+  </button>
+  <button id="btn-presentation" type="button" title="Modo apresentacao">
+    <i data-lucide="presentation"></i>
+    <span>Apresentar</span>
+  </button>
+  <button id="btn-export-text" class="success" type="button" title="Exportar texto">
+    <i data-lucide="file-text"></i>
+    <span>Exportar texto</span>
+  </button>
+  <span class="toolbar-separator" aria-hidden="true"></span>
+  <button id="btn-expand-all" class="icon-btn" type="button" title="Expandir tudo" aria-label="Expandir tudo">
+    <i data-lucide="maximize-2"></i>
+  </button>
+  <button id="btn-collapse-all" class="icon-btn" type="button" title="Recolher tudo" aria-label="Recolher tudo">
+    <i data-lucide="minimize-2"></i>
+  </button>
+  <button id="btn-reset" class="icon-btn" type="button" title="Restaurar padrao" aria-label="Restaurar padrao">
+    <i data-lucide="rotate-ccw"></i>
+  </button>
+  <button id="btn-export" class="icon-btn" type="button" title="Exportar JSON" aria-label="Exportar JSON">
+    <i data-lucide="download"></i>
+  </button>
+  <button id="btn-import" class="icon-btn" type="button" title="Importar JSON" aria-label="Importar JSON">
+    <i data-lucide="upload"></i>
+  </button>
+  <button id="btn-fit" class="icon-btn" type="button" title="Centralizar" aria-label="Centralizar">
+    <i data-lucide="scan"></i>
+  </button>
   <input type="file" id="file-import" accept=".json" style="display:none;">
 </div>
-
-<section class="appearance-panel" aria-label="Aparencia do mapa">
-  <div class="color-field">
-    <label for="color-node-bg">Etiqueta</label>
-    <input id="color-node-bg" type="color" value="#ffffff">
-  </div>
-  <div class="color-field">
-    <label for="color-node-text">Fonte</label>
-    <input id="color-node-text" type="color" value="#23313f">
-  </div>
-  <div class="color-field">
-    <label for="color-node-border">Borda</label>
-    <input id="color-node-border" type="color" value="#7bc2c5">
-  </div>
-  <div class="color-field">
-    <label for="color-edge">Linhas</label>
-    <input id="color-edge" type="color" value="#5faeb8">
-  </div>
-  <div class="color-field">
-    <label for="color-root-bg">No central</label>
-    <input id="color-root-bg" type="color" value="#2f8fc8">
-  </div>
-  <button id="btn-reset-style" type="button">Resetar cores</button>
-</section>
 
 <div class="hint-panel">
   <strong>Como usar:</strong>
   <span>arrastar no</span><span class="sep">-</span>
+  <span>clique no no para cores e acoes</span><span class="sep">-</span>
   <span>duplo-clique para editar</span><span class="sep">-</span>
-  <span>botao + adiciona filho</span><span class="sep">-</span>
-  <span>botao x deleta</span><span class="sep">-</span>
   <span>seta recolhe ramos</span>
 </div>
 
@@ -372,6 +470,35 @@
   <div id="status-badge" class="status-badge"></div>
   <div id="hint">scroll = zoom - arrastar fundo = mover</div>
 </div>
+
+<div id="node-menu" class="node-menu" aria-hidden="true">
+  <div class="node-color-field">
+    <label for="node-bg-color">Fundo</label>
+    <input id="node-bg-color" type="color" value="#ffffff">
+  </div>
+  <div class="node-color-field">
+    <label for="node-text-color">Fonte</label>
+    <input id="node-text-color" type="color" value="#23313f">
+  </div>
+  <div class="node-color-field">
+    <label for="node-border-color">Borda</label>
+    <input id="node-border-color" type="color" value="#7bc2c5">
+  </div>
+  <button id="node-add-child" class="icon-btn" type="button" title="Adicionar filho" aria-label="Adicionar filho">
+    <i data-lucide="plus"></i>
+  </button>
+  <button id="node-reset-style" class="icon-btn" type="button" title="Limpar cores" aria-label="Limpar cores">
+    <i data-lucide="eraser"></i>
+  </button>
+  <button id="node-delete" class="icon-btn danger" type="button" title="Remover no" aria-label="Remover no">
+    <i data-lucide="trash-2"></i>
+  </button>
+</div>
+
+<button id="btn-exit-presentation" class="presentation-exit" type="button">
+  <i data-lucide="x"></i>
+  <span>Sair</span>
+</button>
 
 <div class="modal-overlay" id="ai-modal" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title">
@@ -392,10 +519,10 @@
 <style>
   .mm-node {
     position: absolute;
-    padding: 10px 14px;
-    border-radius: 9px;
+    padding: 11px 15px;
+    border-radius: 12px;
     font-size: 12px;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
     cursor: move;
     user-select: none;
     white-space: nowrap;
@@ -405,13 +532,13 @@
     align-items: center;
     gap: 6px;
     background: var(--node-bg);
-    border-color: var(--node-border);
+    border-color: rgba(255,255,255,0.78);
     color: var(--node-text);
-    box-shadow: 0 6px 18px rgba(50, 99, 118, 0.10);
+    box-shadow: 0 10px 26px rgba(50, 99, 118, 0.13), 0 1px 0 rgba(255,255,255,0.86) inset;
   }
   .mm-node:hover {
     transform: translateY(-1px);
-    box-shadow: 0 0 0 3px rgba(104,188,192,0.25), 0 10px 24px rgba(50, 99, 118, 0.14);
+    box-shadow: 0 0 0 3px rgba(104,188,192,0.20), 0 16px 34px rgba(50, 99, 118, 0.18);
   }
   .mm-node.editing { cursor: text; }
   .mm-node[data-level="0"] {
@@ -485,6 +612,11 @@
   const aiModal = document.getElementById('ai-modal');
   const aiInput = document.getElementById('ai-input');
   const aiCharCount = document.getElementById('ai-char-count');
+  const nodeMenu = document.getElementById('node-menu');
+  const nodeBgColor = document.getElementById('node-bg-color');
+  const nodeTextColor = document.getElementById('node-text-color');
+  const nodeBorderColor = document.getElementById('node-border-color');
+  const nodeDeleteBtn = document.getElementById('node-delete');
 
   const DEFAULT_TREE = {
     id: 'root', text: 'Central Inteligente\nAdministradora de CondomÃ­nios', level: 0,
@@ -555,13 +687,13 @@
     ]
   };
 
-  const STYLE_KEY = 'by_people_mindmap_style_v1';
-  const DEFAULT_STYLE = {
-    nodeBg: '#ffffff',
-    nodeText: '#23313f',
-    nodeBorder: '#7bc2c5',
-    edge: '#5faeb8',
-    rootBg: '#2f8fc8'
+  const DEFAULT_NODE_STYLE = {
+    bgColor: '#ffffff',
+    textColor: '#23313f',
+    borderColor: '#7bc2c5',
+    rootBgColor: '#2f8fc8',
+    rootTextColor: '#ffffff',
+    edgeColor: '#5faeb8'
   };
 
   let tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
@@ -572,37 +704,9 @@
   let draggingNode = null;
   let panningCanvas = false;
   let panStart = null;
-  let currentStyle = loadStyle();
-
-  function loadStyle() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STYLE_KEY) || '{}');
-      return { ...DEFAULT_STYLE, ...saved };
-    } catch (err) {
-      return { ...DEFAULT_STYLE };
-    }
-  }
-
-  function saveStyle() {
-    try { localStorage.setItem(STYLE_KEY, JSON.stringify(currentStyle)); } catch (err) {}
-  }
-
-  function setRootVar(name, value) {
-    document.documentElement.style.setProperty(name, value);
-  }
-
-  function applyStyleControls() {
-    setRootVar('--node-bg', currentStyle.nodeBg);
-    setRootVar('--node-text', currentStyle.nodeText);
-    setRootVar('--node-border', currentStyle.nodeBorder);
-    setRootVar('--edge-color', currentStyle.edge);
-    setRootVar('--node-root-bg', currentStyle.rootBg);
-    document.getElementById('color-node-bg').value = currentStyle.nodeBg;
-    document.getElementById('color-node-text').value = currentStyle.nodeText;
-    document.getElementById('color-node-border').value = currentStyle.nodeBorder;
-    document.getElementById('color-edge').value = currentStyle.edge;
-    document.getElementById('color-root-bg').value = currentStyle.rootBg;
-  }
+  let selectedNode = null;
+  let selectedNodeEl = null;
+  let suppressNextNodeClick = false;
 
   function showStatus(message, duration) {
     statusBadge.textContent = message;
@@ -617,6 +721,93 @@
 
   function hideStatus() {
     statusBadge.style.display = 'none';
+  }
+
+  function nodeColor(node, key) {
+    if (node[key]) return node[key];
+    if (node.level === 0 && key === 'bgColor') return DEFAULT_NODE_STYLE.rootBgColor;
+    if (node.level === 0 && key === 'textColor') return DEFAULT_NODE_STYLE.rootTextColor;
+    if (key === 'borderColor') return DEFAULT_NODE_STYLE.borderColor;
+    if (key === 'textColor') return DEFAULT_NODE_STYLE.textColor;
+    return DEFAULT_NODE_STYLE.bgColor;
+  }
+
+  function applyNodeStyle(node, el) {
+    el.style.background = node.bgColor || '';
+    el.style.color = node.textColor || '';
+    el.style.borderColor = node.borderColor || '';
+    if (node.bgColor && node.level === 0) {
+      el.style.background = node.bgColor;
+    }
+  }
+
+  function hideNodeMenu() {
+    selectedNode = null;
+    selectedNodeEl = null;
+    nodeMenu.classList.remove('show');
+    nodeMenu.setAttribute('aria-hidden', 'true');
+  }
+
+  function positionNodeMenu(targetEl) {
+    const targetRect = targetEl.getBoundingClientRect();
+    const menuRect = nodeMenu.getBoundingClientRect();
+    const left = Math.max(12, Math.min(
+      window.innerWidth - menuRect.width - 12,
+      targetRect.left + targetRect.width / 2 - menuRect.width / 2
+    ));
+    const top = Math.max(12, targetRect.top - menuRect.height - 14);
+    nodeMenu.style.left = left + 'px';
+    nodeMenu.style.top = top + 'px';
+  }
+
+  function showNodeMenu(node, el) {
+    if (document.body.classList.contains('presentation-mode')) return;
+    selectedNode = node;
+    selectedNodeEl = el;
+    nodeBgColor.value = nodeColor(node, 'bgColor');
+    nodeTextColor.value = nodeColor(node, 'textColor');
+    nodeBorderColor.value = nodeColor(node, 'borderColor');
+    nodeDeleteBtn.style.display = node.level === 0 ? 'none' : 'inline-flex';
+    nodeMenu.classList.add('show');
+    nodeMenu.setAttribute('aria-hidden', 'false');
+    positionNodeMenu(el);
+  }
+
+  function updateSelectedNodeStyle(key, value) {
+    if (!selectedNode || !selectedNodeEl) return;
+    selectedNode[key] = value;
+    applyNodeStyle(selectedNode, selectedNodeEl);
+    drawEdges();
+    positionNodeMenu(selectedNodeEl);
+  }
+
+  function addChildToNode(node) {
+    const childLevel = Math.min(node.level + 1, 3);
+    const childX = node.x + 240;
+    const siblings = node.children || [];
+    const childY = siblings.length ? siblings[siblings.length - 1].y + 44 : node.y;
+    const child = { id:newId(), text:'Novo no', level:childLevel, x:childX, y:childY, collapsed:false, children:[] };
+    node.children = node.children || [];
+    node.children.push(child);
+    node.collapsed = false;
+    hideNodeMenu();
+    render();
+    setTimeout(() => {
+      const newEl = canvas.querySelector(`[data-id="${child.id}"] .mm-text`);
+      if (newEl) newEl.dispatchEvent(new MouseEvent('dblclick', { bubbles:true }));
+    }, 50);
+  }
+
+  function deleteNode(node) {
+    const parent = parentIndex[node.id];
+    if (!parent) return;
+    parent.children = parent.children.filter(c => c.id !== node.id);
+    hideNodeMenu();
+    render();
+  }
+
+  function refreshIcons() {
+    if (window.lucide) window.lucide.createIcons();
   }
 
   function rebuildIndex(node, parent) {
@@ -649,6 +840,7 @@
     el.dataset.level = node.level;
     el.style.left = node.x + 'px';
     el.style.top = node.y + 'px';
+    applyNodeStyle(node, el);
 
     const hasChildren = (node.children || []).length > 0;
     if (node.collapsed && hasChildren) {
@@ -673,6 +865,7 @@
     text.textContent = node.text;
     text.addEventListener('dblclick', (e) => {
       e.stopPropagation();
+      hideNodeMenu();
       text.setAttribute('contenteditable', 'true');
       el.classList.add('editing');
       text.focus();
@@ -693,56 +886,23 @@
       if (e.key === 'Escape') { text.textContent = node.text; text.blur(); }
     });
 
-    const controls = document.createElement('div');
-    controls.className = 'mm-controls';
-
-    const addBtn = document.createElement('button');
-    addBtn.className = 'mm-add';
-    addBtn.textContent = '+';
-    addBtn.title = 'Adicionar filho';
-    addBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const childLevel = Math.min(node.level + 1, 3);
-      const childX = node.x + 240;
-      const siblings = node.children || [];
-      const childY = siblings.length ? siblings[siblings.length - 1].y + 44 : node.y;
-      const child = { id:newId(), text:'Novo nÃ³', level:childLevel, x:childX, y:childY, collapsed:false, children:[] };
-      node.children = node.children || [];
-      node.children.push(child);
-      node.collapsed = false;
-      render();
-      setTimeout(() => {
-        const newEl = canvas.querySelector(`[data-id="${child.id}"] .mm-text`);
-        if (newEl) newEl.dispatchEvent(new MouseEvent('dblclick', { bubbles:true }));
-      }, 50);
-    });
-    controls.appendChild(addBtn);
-
-    if (node.level > 0) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'mm-delete';
-      delBtn.textContent = 'Ã—';
-      delBtn.title = 'Remover nÃ³ (e filhos)';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const parent = parentIndex[node.id];
-        if (!parent) return;
-        parent.children = parent.children.filter(c => c.id !== node.id);
-        render();
-      });
-      controls.appendChild(delBtn);
-    }
-
     el.appendChild(toggle);
     el.appendChild(text);
-    el.appendChild(controls);
 
     el.addEventListener('mousedown', (e) => {
       if (e.target === text && text.getAttribute('contenteditable') === 'true') return;
       if (e.target.tagName === 'BUTTON') return;
       if (e.target === toggle) return;
       e.stopPropagation();
-      draggingNode = { node, el, startX:e.clientX, startY:e.clientY, origX:node.x, origY:node.y };
+      draggingNode = { node, el, startX:e.clientX, startY:e.clientY, origX:node.x, origY:node.y, moved:false };
+    });
+
+    el.addEventListener('click', (e) => {
+      if (suppressNextNodeClick) return;
+      if (text.getAttribute('contenteditable') === 'true') return;
+      if (e.target === toggle) return;
+      e.stopPropagation();
+      showNodeMenu(node, el);
     });
 
     canvas.appendChild(el);
@@ -824,6 +984,10 @@
     return lines.join('\n');
   }
 
+  function edgeColorFor(child) {
+    return child.borderColor || DEFAULT_NODE_STYLE.edgeColor;
+  }
+
   function drawEdges() {
     const rect = container.getBoundingClientRect();
     svg.setAttribute('width', rect.width);
@@ -845,7 +1009,7 @@
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M ${px} ${py} C ${midX} ${py}, ${midX} ${cy}, ${cx} ${cy}`);
         path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', currentStyle.edge);
+        path.setAttribute('stroke', edgeColorFor(child));
         path.setAttribute('stroke-width', '1.2');
         path.setAttribute('opacity', '0.55');
         svg.appendChild(path);
@@ -862,6 +1026,10 @@
     if (draggingNode) {
       const dx = (e.clientX - draggingNode.startX) / view.scale;
       const dy = (e.clientY - draggingNode.startY) / view.scale;
+      if (Math.abs(e.clientX - draggingNode.startX) > 3 || Math.abs(e.clientY - draggingNode.startY) > 3) {
+        draggingNode.moved = true;
+        hideNodeMenu();
+      }
       draggingNode.node.x = draggingNode.origX + dx;
       draggingNode.node.y = draggingNode.origY + dy;
       draggingNode.el.style.left = draggingNode.node.x + 'px';
@@ -876,6 +1044,10 @@
   });
 
   document.addEventListener('mouseup', () => {
+    if (draggingNode && draggingNode.moved) {
+      suppressNextNodeClick = true;
+      setTimeout(() => { suppressNextNodeClick = false; }, 0);
+    }
     draggingNode = null;
     panningCanvas = false;
     container.style.cursor = 'grab';
@@ -883,6 +1055,7 @@
 
   container.addEventListener('mousedown', (e) => {
     if (e.target === container || e.target === svg || e.target === canvas) {
+      hideNodeMenu();
       panningCanvas = true;
       panStart = { x:e.clientX, y:e.clientY, tx:view.tx, ty:view.ty };
       container.style.cursor = 'grabbing';
@@ -929,26 +1102,56 @@
   document.getElementById('btn-fit').addEventListener('click', resetView);
   document.getElementById('btn-fit-top').addEventListener('click', resetView);
 
-  [
-    ['color-node-bg', 'nodeBg'],
-    ['color-node-text', 'nodeText'],
-    ['color-node-border', 'nodeBorder'],
-    ['color-edge', 'edge'],
-    ['color-root-bg', 'rootBg']
-  ].forEach(([inputId, key]) => {
-    document.getElementById(inputId).addEventListener('input', (e) => {
-      currentStyle[key] = e.target.value;
-      applyStyleControls();
-      saveStyle();
-      drawEdges();
-    });
+  function setPresentationMode(active) {
+    document.body.classList.toggle('presentation-mode', active);
+    hideNodeMenu();
+    setTimeout(drawEdges, 80);
+  }
+
+  document.getElementById('btn-presentation').addEventListener('click', () => {
+    setPresentationMode(true);
   });
 
-  document.getElementById('btn-reset-style').addEventListener('click', () => {
-    currentStyle = { ...DEFAULT_STYLE };
-    applyStyleControls();
-    saveStyle();
+  document.getElementById('btn-exit-presentation').addEventListener('click', () => {
+    setPresentationMode(false);
+  });
+
+  nodeBgColor.addEventListener('input', (e) => {
+    updateSelectedNodeStyle('bgColor', e.target.value);
+  });
+
+  nodeTextColor.addEventListener('input', (e) => {
+    updateSelectedNodeStyle('textColor', e.target.value);
+  });
+
+  nodeBorderColor.addEventListener('input', (e) => {
+    updateSelectedNodeStyle('borderColor', e.target.value);
+  });
+
+  document.getElementById('node-reset-style').addEventListener('click', () => {
+    if (!selectedNode || !selectedNodeEl) return;
+    delete selectedNode.bgColor;
+    delete selectedNode.textColor;
+    delete selectedNode.borderColor;
+    applyNodeStyle(selectedNode, selectedNodeEl);
+    nodeBgColor.value = nodeColor(selectedNode, 'bgColor');
+    nodeTextColor.value = nodeColor(selectedNode, 'textColor');
+    nodeBorderColor.value = nodeColor(selectedNode, 'borderColor');
     drawEdges();
+  });
+
+  document.getElementById('node-add-child').addEventListener('click', () => {
+    if (selectedNode) addChildToNode(selectedNode);
+  });
+
+  nodeDeleteBtn.addEventListener('click', () => {
+    if (selectedNode) deleteNode(selectedNode);
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (!nodeMenu.contains(e.target) && !e.target.closest('.mm-node')) {
+      hideNodeMenu();
+    }
   });
 
   document.getElementById('btn-ai').addEventListener('click', () => {
@@ -971,6 +1174,19 @@
 
   aiInput.addEventListener('input', () => {
     aiCharCount.textContent = aiInput.value.length + ' caracteres';
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (document.body.classList.contains('presentation-mode')) {
+      setPresentationMode(false);
+      return;
+    }
+    if (aiModal.classList.contains('show')) {
+      aiModal.classList.remove('show');
+      aiModal.setAttribute('aria-hidden', 'true');
+    }
+    hideNodeMenu();
   });
 
   document.getElementById('ai-generate').addEventListener('click', async () => {
@@ -1060,8 +1276,8 @@
 
   window.addEventListener('resize', drawEdges);
 
-  applyStyleControls();
   render();
+  refreshIcons();
 })();
 </script>
 </div>
