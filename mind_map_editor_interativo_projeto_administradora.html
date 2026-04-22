@@ -6,20 +6,34 @@
   <title>Mind Map Editor Interativo</title>
   <style>
     :root {
-      --color-background-secondary: #202532;
-      --color-text-secondary: #aab2c3;
-      --color-text-primary: #f0f4ff;
+      --page-bg: #f5f8fb;
+      --panel-bg: #ffffff;
+      --panel-soft: #edf6f8;
+      --canvas-bg: #f8fbfc;
+      --brand-blue: #2f8fc8;
+      --brand-teal: #68bcc0;
+      --text-main: #17212c;
+      --text-muted: #667383;
+      --border: #d8e4ec;
+      --node-root-bg: #2f8fc8;
+      --node-root-text: #ffffff;
+      --node-bg: #ffffff;
+      --node-text: #23313f;
+      --node-border: #7bc2c5;
+      --edge-color: #5faeb8;
       --border-radius-md: 10px;
-      --border-radius-lg: 14px;
-      --color-border-tertiary: #3a4254;
+      --border-radius-lg: 16px;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 20px;
-      background: #0f131b;
-      color: #e8edf7;
+      padding: 18px;
+      background:
+        radial-gradient(circle at top left, rgba(104,188,192,0.20), transparent 34%),
+        linear-gradient(180deg, #ffffff 0%, var(--page-bg) 42%, #edf4f7 100%);
+      color: var(--text-main);
       font-family: "Segoe UI", Arial, sans-serif;
+      min-height: 100vh;
     }
     .sr-only {
       position: absolute;
@@ -33,72 +47,286 @@
       border: 0;
     }
     button {
-      background: #2a303d;
-      color: #d4d8e0;
-      border: 1px solid #4a5161;
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px 10px;
       cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      box-shadow: 0 1px 2px rgba(16, 40, 56, 0.05);
     }
-    button:hover { background: #323a4a; }
+    button:hover { background: #f2f8fa; border-color: #9bd0d3; }
+    .app-shell {
+      max-width: 1680px;
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+      padding: 18px 20px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid rgba(216,228,236,0.9);
+      border-radius: 18px;
+      box-shadow: 0 18px 45px rgba(32, 87, 106, 0.10);
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+    .brand-logo {
+      width: 190px;
+      height: 58px;
+      object-fit: contain;
+      object-position: left center;
+      mix-blend-mode: multiply;
+    }
+    .brand-copy {
+      min-width: 0;
+      padding-left: 16px;
+      border-left: 1px solid var(--border);
+    }
+    .brand-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.15;
+      letter-spacing: 0;
+      color: var(--text-main);
+    }
+    .brand-subtitle {
+      margin: 5px 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      align-items: center;
+      padding: 12px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .toolbar .primary {
+      background: linear-gradient(135deg, var(--brand-blue), var(--brand-teal));
+      color: #ffffff;
+      border-color: transparent;
+    }
+    .appearance-panel {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+      padding: 12px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(32, 87, 106, 0.07);
+    }
+    .color-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .color-field label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .color-field input {
+      width: 100%;
+      height: 36px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+    .hint-panel {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+      padding:10px 12px;
+      background:var(--panel-soft);
+      border:1px solid var(--border);
+      border-radius:var(--border-radius-md);
+      font-size:13px;
+      color:var(--text-muted);
+      align-items:center;
+    }
+    .hint-panel strong { color: var(--text-main); }
+    .sep { opacity: 0.45; }
+    #mindmap-container {
+      position:relative;
+      width:100%;
+      height:720px;
+      background:
+        linear-gradient(rgba(73,151,179,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(73,151,179,0.05) 1px, transparent 1px),
+        var(--canvas-bg);
+      background-size: 28px 28px, 28px 28px, auto;
+      border-radius:var(--border-radius-lg);
+      overflow:hidden;
+      border:1px solid var(--border);
+      cursor:grab;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.8), 0 18px 48px rgba(32, 87, 106, 0.13);
+    }
+    #edges { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+    #canvas { position:absolute; top:0; left:0; width:0; height:0; }
+    #zoom-controls {
+      position:absolute;
+      bottom:14px;
+      right:14px;
+      display:flex;
+      gap:6px;
+      z-index:100;
+      padding: 5px;
+      background: rgba(255,255,255,0.86);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+    #zoom-controls button { width:32px; height:32px; padding:0; box-shadow:none; }
+    #zoom-controls #btn-zoom-reset { width:auto; min-width:56px; padding:0 10px; font-size:12px; }
+    #hint {
+      position:absolute;
+      bottom:16px;
+      left:16px;
+      font-size:11px;
+      color:#70808f;
+      pointer-events:none;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(216,228,236,0.9);
+      border-radius: 999px;
+      padding: 6px 10px;
+    }
+    @media (max-width: 900px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .brand { flex-direction: column; align-items: flex-start; }
+      .brand-copy { padding-left: 0; border-left: 0; }
+      .appearance-panel { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+    }
   </style>
 </head>
-<body><h2 class="sr-only">Mind map editor interativo do projeto Central Inteligente â€” arraste, edite, adicione e remova nÃ³s livremente</h2>
+<body>
+<div class="app-shell">
+<h2 class="sr-only">Mind map editor interativo do projeto Central Inteligente - arraste, edite, adicione e remova nos livremente</h2>
 
-<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; padding:10px 12px; background:var(--color-background-secondary); border-radius:var(--border-radius-md); font-size:13px; color:var(--color-text-secondary); align-items:center;">
-  <span style="font-weight:500; color:var(--color-text-primary);">Como usar:</span>
-  <span>arrastar nÃ³</span><span style="opacity:0.5">Â·</span>
-  <span>duplo-clique para editar</span><span style="opacity:0.5">Â·</span>
-  <span>botÃ£o + adiciona filho</span><span style="opacity:0.5">Â·</span>
-  <span>botÃ£o Ã— deleta</span><span style="opacity:0.5">Â·</span>
-  <span>botÃ£o â–¸/â–¾ recolhe</span>
-</div>
+<header class="topbar">
+  <div class="brand">
+    <img class="brand-logo" src="assets/by-people-logo.png" alt="By People">
+    <div class="brand-copy">
+      <h1 class="brand-title">Mind Map Editor</h1>
+      <p class="brand-subtitle">Organize ideias, projetos e processos com visual personalizavel.</p>
+    </div>
+  </div>
+  <button id="btn-fit-top" class="primary" type="button">Centralizar mapa</button>
+</header>
 
-<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+<div class="toolbar">
   <button id="btn-expand-all" type="button">Expandir tudo</button>
   <button id="btn-collapse-all" type="button">Recolher tudo</button>
-  <button id="btn-reset" type="button">Restaurar padrÃ£o</button>
+  <button id="btn-reset" type="button">Restaurar padrao</button>
   <button id="btn-export" type="button">Exportar JSON</button>
   <button id="btn-import" type="button">Importar JSON</button>
   <button id="btn-fit" type="button">Centralizar</button>
   <input type="file" id="file-import" accept=".json" style="display:none;">
 </div>
 
-<div id="mindmap-container" style="position:relative; width:100%; height:720px; background:#1a1d24; border-radius:var(--border-radius-lg); overflow:hidden; border:0.5px solid var(--color-border-tertiary); cursor:grab;">
-  <svg id="edges" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></svg>
-  <div id="canvas" style="position:absolute; top:0; left:0; width:0; height:0;"></div>
-  <div id="zoom-controls" style="position:absolute; bottom:12px; right:12px; display:flex; gap:6px; z-index:100;">
-    <button id="btn-zoom-out" type="button" style="width:32px; height:32px; padding:0; background:#2a303d; color:#d4d8e0; border:0.5px solid #4a5161;">âˆ’</button>
-    <button id="btn-zoom-reset" type="button" style="height:32px; padding:0 10px; background:#2a303d; color:#d4d8e0; border:0.5px solid #4a5161; font-size:12px;"><span id="zoom-pct">100%</span></button>
-    <button id="btn-zoom-in" type="button" style="width:32px; height:32px; padding:0; background:#2a303d; color:#d4d8e0; border:0.5px solid #4a5161;">+</button>
+<section class="appearance-panel" aria-label="Aparencia do mapa">
+  <div class="color-field">
+    <label for="color-node-bg">Etiqueta</label>
+    <input id="color-node-bg" type="color" value="#ffffff">
   </div>
-  <div id="hint" style="position:absolute; bottom:12px; left:12px; font-size:11px; color:#6b7280; pointer-events:none;">scroll = zoom Â· arrastar fundo = mover</div>
+  <div class="color-field">
+    <label for="color-node-text">Fonte</label>
+    <input id="color-node-text" type="color" value="#23313f">
+  </div>
+  <div class="color-field">
+    <label for="color-node-border">Borda</label>
+    <input id="color-node-border" type="color" value="#7bc2c5">
+  </div>
+  <div class="color-field">
+    <label for="color-edge">Linhas</label>
+    <input id="color-edge" type="color" value="#5faeb8">
+  </div>
+  <div class="color-field">
+    <label for="color-root-bg">No central</label>
+    <input id="color-root-bg" type="color" value="#2f8fc8">
+  </div>
+  <button id="btn-reset-style" type="button">Resetar cores</button>
+</section>
+
+<div class="hint-panel">
+  <strong>Como usar:</strong>
+  <span>arrastar no</span><span class="sep">-</span>
+  <span>duplo-clique para editar</span><span class="sep">-</span>
+  <span>botao + adiciona filho</span><span class="sep">-</span>
+  <span>botao x deleta</span><span class="sep">-</span>
+  <span>seta recolhe ramos</span>
+</div>
+
+<div id="mindmap-container">
+  <svg id="edges"></svg>
+  <div id="canvas"></div>
+  <div id="zoom-controls">
+    <button id="btn-zoom-out" type="button">-</button>
+    <button id="btn-zoom-reset" type="button"><span id="zoom-pct">100%</span></button>
+    <button id="btn-zoom-in" type="button">+</button>
+  </div>
+  <div id="hint">scroll = zoom - arrastar fundo = mover</div>
 </div>
 
 <style>
   .mm-node {
     position: absolute;
     padding: 10px 14px;
-    border-radius: 10px;
+    border-radius: 9px;
     font-size: 12px;
     font-family: system-ui, -apple-system, sans-serif;
     cursor: move;
     user-select: none;
     white-space: nowrap;
     border: 1px solid;
-    transition: transform 0.08s, box-shadow 0.08s;
+    transition: transform 0.08s, box-shadow 0.08s, background 0.12s, color 0.12s, border-color 0.12s;
     display: flex;
     align-items: center;
     gap: 6px;
+    background: var(--node-bg);
+    border-color: var(--node-border);
+    color: var(--node-text);
+    box-shadow: 0 6px 18px rgba(50, 99, 118, 0.10);
   }
-  .mm-node:hover { box-shadow: 0 0 0 2px rgba(122,136,168,0.4); }
+  .mm-node:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 3px rgba(104,188,192,0.25), 0 10px 24px rgba(50, 99, 118, 0.14);
+  }
   .mm-node.editing { cursor: text; }
-  .mm-node[data-level="0"] { background:#4a4458; border-color:#6b6482; color:#e8e6f0; font-weight:500; font-size:13px; padding:12px 18px; }
-  .mm-node[data-level="1"] { background:#2e3340; border-color:#4a5161; color:#d4d8e0; font-weight:500; }
-  .mm-node[data-level="2"] { background:#1f2530; border-color:#3a4150; color:#b8bcc4; }
-  .mm-node[data-level="3"] { background:#181d27; border-color:#2e3440; color:#9ca3af; font-size:11px; }
+  .mm-node[data-level="0"] {
+    background: linear-gradient(135deg, var(--node-root-bg), var(--brand-teal));
+    border-color: color-mix(in srgb, var(--node-root-bg), #ffffff 28%);
+    color: var(--node-root-text);
+    font-weight:600;
+    font-size:13px;
+    padding:13px 18px;
+    box-shadow: 0 0 0 5px rgba(104,188,192,0.16), 0 14px 32px rgba(47,143,200,0.20);
+  }
+  .mm-node[data-level="1"] { font-weight:600; }
+  .mm-node[data-level="2"] { background: color-mix(in srgb, var(--node-bg), #edf7f8 35%); }
+  .mm-node[data-level="3"] { background: color-mix(in srgb, var(--node-bg), #eef3f6 55%); font-size:11px; }
   .mm-text { outline: none; min-width: 20px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
-  .mm-text[contenteditable="true"] { background:rgba(255,255,255,0.08); padding:1px 4px; border-radius:3px; white-space:normal; overflow:visible; }
+  .mm-text[contenteditable="true"] { background:rgba(255,255,255,0.65); padding:1px 4px; border-radius:3px; white-space:normal; overflow:visible; }
   .mm-controls {
     display: none;
     position: absolute;
@@ -111,35 +339,35 @@
   .mm-controls button {
     width: 20px; height: 20px; padding: 0;
     border-radius: 50%;
-    background: #2a303d;
-    color: #d4d8e0;
-    border: 1px solid #4a5161;
+    background: #ffffff;
+    color: var(--node-text);
+    border: 1px solid var(--node-border);
     font-size: 11px;
     line-height: 1;
     cursor: pointer;
     font-weight: 500;
   }
-  .mm-controls button:hover { background:#3a4150; color:#fff; }
-  .mm-controls button.mm-add { color:#9fe1cb; }
-  .mm-controls button.mm-delete { color:#f4c0d1; }
+  .mm-controls button:hover { background:#eaf7f8; }
+  .mm-controls button.mm-add { color:#168c72; }
+  .mm-controls button.mm-delete { color:#c14b5b; }
   .mm-toggle {
     display:inline-flex;
     align-items:center;
     justify-content:center;
     width:14px; height:14px;
     font-size:10px;
-    color:#7a88a8;
+    color: color-mix(in srgb, var(--node-text), transparent 35%);
     cursor:pointer;
     flex-shrink:0;
   }
-  .mm-toggle:hover { color:#d4d8e0; }
+  .mm-toggle:hover { color: var(--brand-blue); }
   .mm-toggle.empty { visibility:hidden; }
   .mm-node.collapsed .mm-text { opacity: 0.85; }
   .mm-node.collapsed::after {
     content: attr(data-child-count);
     font-size: 10px;
-    color: #7a88a8;
-    background: #2a303d;
+    color: var(--node-text);
+    background: color-mix(in srgb, var(--node-bg), var(--node-border) 20%);
     padding: 1px 6px;
     border-radius: 8px;
     margin-left: 4px;
@@ -222,6 +450,15 @@
     ]
   };
 
+  const STYLE_KEY = 'by_people_mindmap_style_v1';
+  const DEFAULT_STYLE = {
+    nodeBg: '#ffffff',
+    nodeText: '#23313f',
+    nodeBorder: '#7bc2c5',
+    edge: '#5faeb8',
+    rootBg: '#2f8fc8'
+  };
+
   let tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
   let nodeIndex = {};
   let parentIndex = {};
@@ -230,6 +467,37 @@
   let draggingNode = null;
   let panningCanvas = false;
   let panStart = null;
+  let currentStyle = loadStyle();
+
+  function loadStyle() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STYLE_KEY) || '{}');
+      return { ...DEFAULT_STYLE, ...saved };
+    } catch (err) {
+      return { ...DEFAULT_STYLE };
+    }
+  }
+
+  function saveStyle() {
+    try { localStorage.setItem(STYLE_KEY, JSON.stringify(currentStyle)); } catch (err) {}
+  }
+
+  function setRootVar(name, value) {
+    document.documentElement.style.setProperty(name, value);
+  }
+
+  function applyStyleControls() {
+    setRootVar('--node-bg', currentStyle.nodeBg);
+    setRootVar('--node-text', currentStyle.nodeText);
+    setRootVar('--node-border', currentStyle.nodeBorder);
+    setRootVar('--edge-color', currentStyle.edge);
+    setRootVar('--node-root-bg', currentStyle.rootBg);
+    document.getElementById('color-node-bg').value = currentStyle.nodeBg;
+    document.getElementById('color-node-text').value = currentStyle.nodeText;
+    document.getElementById('color-node-border').value = currentStyle.nodeBorder;
+    document.getElementById('color-edge').value = currentStyle.edge;
+    document.getElementById('color-root-bg').value = currentStyle.rootBg;
+  }
 
   function rebuildIndex(node, parent) {
     nodeIndex[node.id] = node;
@@ -392,7 +660,7 @@
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M ${px} ${py} C ${midX} ${py}, ${midX} ${cy}, ${cx} ${cy}`);
         path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', '#7a88a8');
+        path.setAttribute('stroke', currentStyle.edge);
         path.setAttribute('stroke-width', '1.2');
         path.setAttribute('opacity', '0.55');
         svg.appendChild(path);
@@ -467,14 +735,35 @@
 
   document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.2));
   document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(0.83));
-  document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+  function resetView() {
     view = { tx:340, ty:360, scale:0.7 };
     applyView(); drawEdges();
+  }
+
+  document.getElementById('btn-zoom-reset').addEventListener('click', resetView);
+  document.getElementById('btn-fit').addEventListener('click', resetView);
+  document.getElementById('btn-fit-top').addEventListener('click', resetView);
+
+  [
+    ['color-node-bg', 'nodeBg'],
+    ['color-node-text', 'nodeText'],
+    ['color-node-border', 'nodeBorder'],
+    ['color-edge', 'edge'],
+    ['color-root-bg', 'rootBg']
+  ].forEach(([inputId, key]) => {
+    document.getElementById(inputId).addEventListener('input', (e) => {
+      currentStyle[key] = e.target.value;
+      applyStyleControls();
+      saveStyle();
+      drawEdges();
+    });
   });
 
-  document.getElementById('btn-fit').addEventListener('click', () => {
-    view = { tx:340, ty:360, scale:0.7 };
-    applyView(); drawEdges();
+  document.getElementById('btn-reset-style').addEventListener('click', () => {
+    currentStyle = { ...DEFAULT_STYLE };
+    applyStyleControls();
+    saveStyle();
+    drawEdges();
   });
 
   document.getElementById('btn-expand-all').addEventListener('click', () => {
@@ -523,9 +812,11 @@
 
   window.addEventListener('resize', drawEdges);
 
+  applyStyleControls();
   render();
 })();
 </script>
+</div>
 </body>
 </html>
 
