@@ -1,0 +1,531 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mind Map Editor Interativo</title>
+  <style>
+    :root {
+      --color-background-secondary: #202532;
+      --color-text-secondary: #aab2c3;
+      --color-text-primary: #f0f4ff;
+      --border-radius-md: 10px;
+      --border-radius-lg: 14px;
+      --color-border-tertiary: #3a4254;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0f131b;
+      color: #e8edf7;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    button {
+      background: #2a303d;
+      color: #d4d8e0;
+      border: 1px solid #4a5161;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    button:hover { background: #323a4a; }
+  </style>
+</head>
+<body><h2 class="sr-only">Mind map editor interativo do projeto Central Inteligente â€” arraste, edite, adicione e remova nÃ³s livremente</h2>
+
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; padding:10px 12px; background:var(--color-background-secondary); border-radius:var(--border-radius-md); font-size:13px; color:var(--color-text-secondary); align-items:center;">
+  <span style="font-weight:500; color:var(--color-text-primary);">Como usar:</span>
+  <span>arrastar nÃ³</span><span style="opacity:0.5">Â·</span>
+  <span>duplo-clique para editar</span><span style="opacity:0.5">Â·</span>
+  <span>botÃ£o + adiciona filho</span><span style="opacity:0.5">Â·</span>
+  <span>botÃ£o Ã— deleta</span><span style="opacity:0.5">Â·</span>
+  <span>botÃ£o â–¸/â–¾ recolhe</span>
+</div>
+
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+  <button id="btn-expand-all" type="button">Expandir tudo</button>
+  <button id="btn-collapse-all" type="button">Recolher tudo</button>
+  <button id="btn-reset" type="button">Restaurar padrÃ£o</button>
+  <button id="btn-export" type="button">Exportar JSON</button>
+  <button id="btn-import" type="button">Importar JSON</button>
+  <button id="btn-fit" type="button">Centralizar</button>
+  <input type="file" id="file-import" accept=".json" style="display:none;">
+</div>
+
+<div id="mindmap-container" style="position:relative; width:100%; height:720px; background:#1a1d24; border-radius:var(--border-radius-lg); overflow:hidden; border:0.5px solid var(--color-border-tertiary); cursor:grab;">
+  <svg id="edges" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></svg>
+  <div id="canvas" style="position:absolute; top:0; left:0; width:0; height:0;"></div>
+  <div id="zoom-controls" style="position:absolute; bottom:12px; right:12px; display:flex; gap:6px; z-index:100;">
+    <button id="btn-zoom-out" type="button" style="width:32px; height:32px; padding:0; background:#2a303d; color:#d4d8e0; border:0.5px solid #4a5161;">âˆ’</button>
+    <button id="btn-zoom-reset" type="button" style="height:32px; padding:0 10px; background:#2a303d; color:#d4d8e0; border:0.5px solid #4a5161; font-size:12px;"><span id="zoom-pct">100%</span></button>
+    <button id="btn-zoom-in" type="button" style="width:32px; height:32px; padding:0; background:#2a303d; color:#d4d8e0; border:0.5px solid #4a5161;">+</button>
+  </div>
+  <div id="hint" style="position:absolute; bottom:12px; left:12px; font-size:11px; color:#6b7280; pointer-events:none;">scroll = zoom Â· arrastar fundo = mover</div>
+</div>
+
+<style>
+  .mm-node {
+    position: absolute;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-family: system-ui, -apple-system, sans-serif;
+    cursor: move;
+    user-select: none;
+    white-space: nowrap;
+    border: 1px solid;
+    transition: transform 0.08s, box-shadow 0.08s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mm-node:hover { box-shadow: 0 0 0 2px rgba(122,136,168,0.4); }
+  .mm-node.editing { cursor: text; }
+  .mm-node[data-level="0"] { background:#4a4458; border-color:#6b6482; color:#e8e6f0; font-weight:500; font-size:13px; padding:12px 18px; }
+  .mm-node[data-level="1"] { background:#2e3340; border-color:#4a5161; color:#d4d8e0; font-weight:500; }
+  .mm-node[data-level="2"] { background:#1f2530; border-color:#3a4150; color:#b8bcc4; }
+  .mm-node[data-level="3"] { background:#181d27; border-color:#2e3440; color:#9ca3af; font-size:11px; }
+  .mm-text { outline: none; min-width: 20px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .mm-text[contenteditable="true"] { background:rgba(255,255,255,0.08); padding:1px 4px; border-radius:3px; white-space:normal; overflow:visible; }
+  .mm-controls {
+    display: none;
+    position: absolute;
+    right: -6px;
+    top: -10px;
+    gap: 3px;
+    z-index: 10;
+  }
+  .mm-node:hover .mm-controls { display: flex; }
+  .mm-controls button {
+    width: 20px; height: 20px; padding: 0;
+    border-radius: 50%;
+    background: #2a303d;
+    color: #d4d8e0;
+    border: 1px solid #4a5161;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .mm-controls button:hover { background:#3a4150; color:#fff; }
+  .mm-controls button.mm-add { color:#9fe1cb; }
+  .mm-controls button.mm-delete { color:#f4c0d1; }
+  .mm-toggle {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:14px; height:14px;
+    font-size:10px;
+    color:#7a88a8;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .mm-toggle:hover { color:#d4d8e0; }
+  .mm-toggle.empty { visibility:hidden; }
+  .mm-node.collapsed .mm-text { opacity: 0.85; }
+  .mm-node.collapsed::after {
+    content: attr(data-child-count);
+    font-size: 10px;
+    color: #7a88a8;
+    background: #2a303d;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 4px;
+  }
+</style>
+
+<script>
+(function(){
+  const container = document.getElementById('mindmap-container');
+  const canvas = document.getElementById('canvas');
+  const svg = document.getElementById('edges');
+  const zoomPctEl = document.getElementById('zoom-pct');
+
+  const DEFAULT_TREE = {
+    id: 'root', text: 'Central Inteligente\nAdministradora de CondomÃ­nios', level: 0,
+    x: 0, y: 0, collapsed: false,
+    children: [
+      { id:'n1', text:'1. Dores do cliente', level:1, x:320, y:-520, collapsed:false, children:[
+        { id:'n1a', text:'SÃ­ndico na fila errada', level:2, x:560, y:-620, children:[] },
+        { id:'n1b', text:'Financeiro fragmentado (8 pessoas)', level:2, x:560, y:-570, children:[] },
+        { id:'n1c', text:'Documentos perdidos, multas', level:2, x:560, y:-520, children:[] },
+        { id:'n1d', text:'Consultas repetitivas Ã  equipe', level:2, x:560, y:-470, children:[] },
+        { id:'n1e', text:'Risco LGPD entre condomÃ­nios', level:2, x:560, y:-420, children:[] },
+      ]},
+      { id:'n2', text:'2. Estrutura da empresa', level:1, x:320, y:-360, collapsed:false, children:[
+        { id:'n2a', text:'Atendimento ao sÃ­ndico (premium)', level:2, x:560, y:-380, children:[] },
+        { id:'n2b', text:'Financeiro (gargalo crÃ­tico)', level:2, x:560, y:-340, children:[] },
+        { id:'n2c', text:'Departamento Pessoal', level:2, x:560, y:-300, children:[] },
+        { id:'n2d', text:'Operacional e gestores', level:2, x:560, y:-260, children:[] },
+        { id:'n2e', text:'ManutenÃ§Ãµes (Easy Alert)', level:2, x:560, y:-220, children:[] },
+        { id:'n2f', text:'RecepÃ§Ã£o e logÃ­stica hÃ­brida', level:2, x:560, y:-180, children:[] },
+      ]},
+      { id:'n3', text:'3. SoluÃ§Ã£o proposta', level:1, x:320, y:-120, collapsed:false, children:[
+        { id:'n3a', text:'Agente Porteiro (autenticaÃ§Ã£o)', level:2, x:560, y:-150, children:[] },
+        { id:'n3b', text:'Orquestrador Claude Sonnet 4.5', level:2, x:560, y:-110, children:[] },
+        { id:'n3c', text:'Agentes especializados', level:2, x:560, y:-70, children:[
+          { id:'n3c1', text:'Financeiro', level:3, x:820, y:-110, children:[] },
+          { id:'n3c2', text:'Regimento', level:3, x:820, y:-75, children:[] },
+          { id:'n3c3', text:'NotificaÃ§Ãµes', level:3, x:820, y:-40, children:[] },
+          { id:'n3c4', text:'Assembleias', level:3, x:820, y:-5, children:[] },
+        ]},
+        { id:'n3d', text:'MCP Servers (SuperlÃ³gica, CRM)', level:2, x:560, y:-30, children:[] },
+        { id:'n3e', text:'Painel operacional e filas', level:2, x:560, y:10, children:[] },
+      ]},
+      { id:'n4', text:'4. Stack Anthropic', level:1, x:320, y:90, collapsed:false, children:[
+        { id:'n4a', text:'Claude Sonnet 4.5', level:2, x:560, y:60, children:[] },
+        { id:'n4b', text:'Claude Opus 4.7 (casos crÃ­ticos)', level:2, x:560, y:100, children:[] },
+        { id:'n4c', text:'Agent SDK + Skills', level:2, x:560, y:140, children:[] },
+        { id:'n4d', text:'MCP (Model Context Protocol)', level:2, x:560, y:180, children:[] },
+        { id:'n4e', text:'Claude Code (dev acelerado)', level:2, x:560, y:220, children:[] },
+      ]},
+      { id:'n5', text:'5. Casos de uso', level:1, x:320, y:270, collapsed:false, children:[
+        { id:'n5a', text:'ProgramaÃ§Ã£o de pagamentos', level:2, x:560, y:260, children:[] },
+        { id:'n5b', text:'Consultas 24/7 inadimplÃªncia', level:2, x:560, y:300, children:[] },
+        { id:'n5c', text:'IA de regimento e convenÃ§Ã£o', level:2, x:560, y:340, children:[] },
+        { id:'n5d', text:'PrÃ©-agendamento de assembleias', level:2, x:560, y:380, children:[] },
+        { id:'n5e', text:'GeraÃ§Ã£o de notificaÃ§Ãµes', level:2, x:560, y:420, children:[] },
+      ]},
+      { id:'n6', text:'6. SeguranÃ§a e LGPD', level:1, x:320, y:460, collapsed:false, children:[
+        { id:'n6a', text:'Isolamento forte por condomÃ­nio', level:2, x:560, y:460, children:[] },
+        { id:'n6b', text:'VÃ­nculo CPF/condomÃ­nio', level:2, x:560, y:500, children:[] },
+        { id:'n6c', text:'Trilha de auditoria imutÃ¡vel', level:2, x:560, y:540, children:[] },
+        { id:'n6d', text:'Human-in-the-loop', level:2, x:560, y:580, children:[] },
+        { id:'n6e', text:'Guardrails determinÃ­sticos', level:2, x:560, y:620, children:[] },
+      ]},
+      { id:'n7', text:'7. Roadmap', level:1, x:320, y:660, collapsed:false, children:[
+        { id:'n7a', text:'Fase 0 â€” descoberta', level:2, x:560, y:660, children:[] },
+        { id:'n7b', text:'Fase 1 â€” MVP canal + financeiro', level:2, x:560, y:700, children:[] },
+        { id:'n7c', text:'Fase 2 â€” regimento e relatÃ³rios', level:2, x:560, y:740, children:[] },
+        { id:'n7d', text:'Fase 3 â€” notificaÃ§Ãµes/assembleias', level:2, x:560, y:780, children:[] },
+        { id:'n7e', text:'Fase 4/5 â€” condÃ´mino e preditivo', level:2, x:560, y:820, children:[] },
+      ]},
+      { id:'n8', text:'8. Ganhos e ROI', level:1, x:320, y:860, collapsed:false, children:[
+        { id:'n8a', text:'-90% em multas por atraso', level:2, x:560, y:860, children:[] },
+        { id:'n8b', text:'-40% horas em tarefas repetitivas', level:2, x:560, y:900, children:[] },
+        { id:'n8c', text:'70%+ sem intervenÃ§Ã£o humana', level:2, x:560, y:940, children:[] },
+        { id:'n8d', text:'ExperiÃªncia premium ao sÃ­ndico', level:2, x:560, y:980, children:[] },
+        { id:'n8e', text:'Payback em 6 a 10 meses', level:2, x:560, y:1020, children:[] },
+      ]},
+    ]
+  };
+
+  let tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
+  let nodeIndex = {};
+  let parentIndex = {};
+  let idCounter = 1000;
+  let view = { tx: 340, ty: 360, scale: 0.7 };
+  let draggingNode = null;
+  let panningCanvas = false;
+  let panStart = null;
+
+  function rebuildIndex(node, parent) {
+    nodeIndex[node.id] = node;
+    parentIndex[node.id] = parent;
+    (node.children || []).forEach(c => rebuildIndex(c, node));
+  }
+
+  function newId() { return 'nx' + (idCounter++); }
+
+  function applyView() {
+    canvas.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
+    canvas.style.transformOrigin = '0 0';
+    zoomPctEl.textContent = Math.round(view.scale * 100) + '%';
+  }
+
+  function render() {
+    nodeIndex = {}; parentIndex = {};
+    rebuildIndex(tree, null);
+    canvas.innerHTML = '';
+    renderNode(tree);
+    drawEdges();
+    applyView();
+  }
+
+  function renderNode(node) {
+    const el = document.createElement('div');
+    el.className = 'mm-node';
+    el.dataset.id = node.id;
+    el.dataset.level = node.level;
+    el.style.left = node.x + 'px';
+    el.style.top = node.y + 'px';
+
+    const hasChildren = (node.children || []).length > 0;
+    if (node.collapsed && hasChildren) {
+      el.classList.add('collapsed');
+      el.dataset.childCount = countDescendants(node);
+    }
+
+    const toggle = document.createElement('span');
+    toggle.className = 'mm-toggle' + (hasChildren ? '' : ' empty');
+    toggle.textContent = node.collapsed ? 'â–¸' : 'â–¾';
+    toggle.title = node.collapsed ? 'Expandir' : 'Recolher';
+    if (hasChildren) {
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        node.collapsed = !node.collapsed;
+        render();
+      });
+    }
+
+    const text = document.createElement('span');
+    text.className = 'mm-text';
+    text.textContent = node.text;
+    text.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      text.setAttribute('contenteditable', 'true');
+      el.classList.add('editing');
+      text.focus();
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+    text.addEventListener('blur', () => {
+      text.removeAttribute('contenteditable');
+      el.classList.remove('editing');
+      node.text = text.textContent.trim() || 'Novo nÃ³';
+      text.textContent = node.text;
+    });
+    text.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); text.blur(); }
+      if (e.key === 'Escape') { text.textContent = node.text; text.blur(); }
+    });
+
+    const controls = document.createElement('div');
+    controls.className = 'mm-controls';
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'mm-add';
+    addBtn.textContent = '+';
+    addBtn.title = 'Adicionar filho';
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const childLevel = Math.min(node.level + 1, 3);
+      const childX = node.x + 240;
+      const siblings = node.children || [];
+      const childY = siblings.length ? siblings[siblings.length - 1].y + 44 : node.y;
+      const child = { id:newId(), text:'Novo nÃ³', level:childLevel, x:childX, y:childY, collapsed:false, children:[] };
+      node.children = node.children || [];
+      node.children.push(child);
+      node.collapsed = false;
+      render();
+      setTimeout(() => {
+        const newEl = canvas.querySelector(`[data-id="${child.id}"] .mm-text`);
+        if (newEl) newEl.dispatchEvent(new MouseEvent('dblclick', { bubbles:true }));
+      }, 50);
+    });
+    controls.appendChild(addBtn);
+
+    if (node.level > 0) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'mm-delete';
+      delBtn.textContent = 'Ã—';
+      delBtn.title = 'Remover nÃ³ (e filhos)';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const parent = parentIndex[node.id];
+        if (!parent) return;
+        parent.children = parent.children.filter(c => c.id !== node.id);
+        render();
+      });
+      controls.appendChild(delBtn);
+    }
+
+    el.appendChild(toggle);
+    el.appendChild(text);
+    el.appendChild(controls);
+
+    el.addEventListener('mousedown', (e) => {
+      if (e.target === text && text.getAttribute('contenteditable') === 'true') return;
+      if (e.target.tagName === 'BUTTON') return;
+      if (e.target === toggle) return;
+      e.stopPropagation();
+      draggingNode = { node, el, startX:e.clientX, startY:e.clientY, origX:node.x, origY:node.y };
+    });
+
+    canvas.appendChild(el);
+
+    if (!node.collapsed && node.children) {
+      node.children.forEach(renderNode);
+    }
+  }
+
+  function countDescendants(node) {
+    if (!node.children) return 0;
+    let count = node.children.length;
+    node.children.forEach(c => { count += countDescendants(c); });
+    return count;
+  }
+
+  function drawEdges() {
+    const rect = container.getBoundingClientRect();
+    svg.setAttribute('width', rect.width);
+    svg.setAttribute('height', rect.height);
+    svg.innerHTML = '';
+    walk(tree, (node) => {
+      if (node.collapsed) return;
+      (node.children || []).forEach(child => {
+        const parentEl = canvas.querySelector(`[data-id="${node.id}"]`);
+        const childEl = canvas.querySelector(`[data-id="${child.id}"]`);
+        if (!parentEl || !childEl) return;
+        const pr = parentEl.getBoundingClientRect();
+        const cr = childEl.getBoundingClientRect();
+        const px = pr.right - rect.left;
+        const py = pr.top + pr.height/2 - rect.top;
+        const cx = cr.left - rect.left;
+        const cy = cr.top + cr.height/2 - rect.top;
+        const midX = px + (cx - px) * 0.5;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M ${px} ${py} C ${midX} ${py}, ${midX} ${cy}, ${cx} ${cy}`);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#7a88a8');
+        path.setAttribute('stroke-width', '1.2');
+        path.setAttribute('opacity', '0.55');
+        svg.appendChild(path);
+      });
+    });
+  }
+
+  function walk(node, fn) {
+    fn(node);
+    (node.children || []).forEach(c => walk(c, fn));
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (draggingNode) {
+      const dx = (e.clientX - draggingNode.startX) / view.scale;
+      const dy = (e.clientY - draggingNode.startY) / view.scale;
+      draggingNode.node.x = draggingNode.origX + dx;
+      draggingNode.node.y = draggingNode.origY + dy;
+      draggingNode.el.style.left = draggingNode.node.x + 'px';
+      draggingNode.el.style.top = draggingNode.node.y + 'px';
+      drawEdges();
+    } else if (panningCanvas) {
+      view.tx = panStart.tx + (e.clientX - panStart.x);
+      view.ty = panStart.ty + (e.clientY - panStart.y);
+      applyView();
+      drawEdges();
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    draggingNode = null;
+    panningCanvas = false;
+    container.style.cursor = 'grab';
+  });
+
+  container.addEventListener('mousedown', (e) => {
+    if (e.target === container || e.target === svg || e.target === canvas) {
+      panningCanvas = true;
+      panStart = { x:e.clientX, y:e.clientY, tx:view.tx, ty:view.ty };
+      container.style.cursor = 'grabbing';
+      e.preventDefault();
+    }
+  });
+
+  container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = container.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const delta = e.deltaY < 0 ? 1.1 : 0.9;
+    const newScale = Math.max(0.2, Math.min(2.5, view.scale * delta));
+    const ratio = newScale / view.scale;
+    view.tx = mx - (mx - view.tx) * ratio;
+    view.ty = my - (my - view.ty) * ratio;
+    view.scale = newScale;
+    applyView();
+    drawEdges();
+  }, { passive:false });
+
+  function zoomBy(factor) {
+    const rect = container.getBoundingClientRect();
+    const mx = rect.width / 2;
+    const my = rect.height / 2;
+    const newScale = Math.max(0.2, Math.min(2.5, view.scale * factor));
+    const ratio = newScale / view.scale;
+    view.tx = mx - (mx - view.tx) * ratio;
+    view.ty = my - (my - view.ty) * ratio;
+    view.scale = newScale;
+    applyView();
+    drawEdges();
+  }
+
+  document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.2));
+  document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(0.83));
+  document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+    view = { tx:340, ty:360, scale:0.7 };
+    applyView(); drawEdges();
+  });
+
+  document.getElementById('btn-fit').addEventListener('click', () => {
+    view = { tx:340, ty:360, scale:0.7 };
+    applyView(); drawEdges();
+  });
+
+  document.getElementById('btn-expand-all').addEventListener('click', () => {
+    walk(tree, n => n.collapsed = false);
+    render();
+  });
+
+  document.getElementById('btn-collapse-all').addEventListener('click', () => {
+    walk(tree, n => { if (n.level >= 1 && n.children && n.children.length) n.collapsed = true; });
+    render();
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    if (confirm('Restaurar o mind map ao estado original? Todas as alteraÃ§Ãµes serÃ£o perdidas.')) {
+      tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
+      render();
+    }
+  });
+
+  document.getElementById('btn-export').addEventListener('click', () => {
+    const data = JSON.stringify(tree, null, 2);
+    const blob = new Blob([data], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mindmap_projeto.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btn-import').addEventListener('click', () => {
+    document.getElementById('file-import').click();
+  });
+  document.getElementById('file-import').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        tree = JSON.parse(ev.target.result);
+        render();
+      } catch(err) { alert('JSON invÃ¡lido: ' + err.message); }
+    };
+    reader.readAsText(file);
+  });
+
+  window.addEventListener('resize', drawEdges);
+
+  render();
+})();
+</script>
+</body>
+</html>
+
