@@ -69,6 +69,12 @@
       transform: translateY(-1px);
       box-shadow: 0 12px 28px rgba(42, 93, 112, 0.12);
     }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      transform: none;
+      box-shadow: none;
+    }
     .app-shell {
       max-width: 1680px;
       margin: 0 auto;
@@ -214,6 +220,7 @@
       font-size: 12px;
       line-height: 1.35;
     }
+    .is-hidden { display: none !important; }
     .sidebar-backdrop {
       position: fixed;
       inset: 0;
@@ -735,6 +742,21 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="auth-modal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <h2 id="auth-modal-title">Entrar na sua conta</h2>
+    <p>Digite seu email para receber um link magico de acesso. Depois de confirmar, seus workspaces e mapas salvos no Supabase aparecem na sidebar.</p>
+    <input id="auth-modal-email" type="email" placeholder="email@empresa.com" style="width:100%; min-height:44px; padding:11px 13px; border:1px solid var(--border); border-radius:12px; font:inherit;">
+    <div class="modal-meta">
+      <span id="auth-modal-status">Sem senha. O acesso chega por email.</span>
+    </div>
+    <div class="modal-actions">
+      <button id="auth-modal-cancel" type="button">Cancelar</button>
+      <button id="auth-modal-submit" class="primary" type="button">Enviar link de acesso</button>
+    </div>
+  </div>
+</div>
+
 <style>
   .mm-node {
     position: absolute;
@@ -831,6 +853,10 @@
   const aiModal = document.getElementById('ai-modal');
   const aiInput = document.getElementById('ai-input');
   const aiCharCount = document.getElementById('ai-char-count');
+  const authModal = document.getElementById('auth-modal');
+  const authModalEmail = document.getElementById('auth-modal-email');
+  const authModalStatus = document.getElementById('auth-modal-status');
+  const authModalSubmit = document.getElementById('auth-modal-submit');
   const nodeMenu = document.getElementById('node-menu');
   const nodeBgColor = document.getElementById('node-bg-color');
   const nodeTextColor = document.getElementById('node-text-color');
@@ -1005,6 +1031,51 @@
     authStatus.textContent = message;
   }
 
+  function updateAuthUi() {
+    const hasSupabase = Boolean(supabaseClient);
+    const isLogged = Boolean(supabaseSession);
+    authEmail.classList.toggle('is-hidden', isLogged || !hasSupabase);
+    loginBtn.disabled = !hasSupabase || isLogged;
+    logoutBtn.disabled = !hasSupabase || !isLogged;
+    loginBtn.querySelector('span').textContent = isLogged ? 'Logado' : 'Entrar';
+    logoutBtn.querySelector('span').textContent = isLogged ? 'Sair' : 'Sair';
+  }
+
+  function openAuthModal() {
+    if (!supabaseClient) {
+      alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify e faca redeploy para ativar login.');
+      return;
+    }
+    if (supabaseSession) {
+      showStatus('Voce ja esta logado.', 2200);
+      return;
+    }
+    authModalEmail.value = authEmail.value.trim();
+    authModalStatus.textContent = 'Sem senha. O acesso chega por email.';
+    authModal.classList.add('show');
+    authModal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => authModalEmail.focus(), 80);
+  }
+
+  function closeAuthModal() {
+    authModal.classList.remove('show');
+    authModal.setAttribute('aria-hidden', 'true');
+  }
+
+  async function ensureCurrentProfile() {
+    if (!supabaseClient || !supabaseSession) return;
+    const { error } = await supabaseClient
+      .from('profiles')
+      .upsert({
+        id: supabaseSession.user.id,
+        full_name: supabaseSession.user.user_metadata?.full_name || supabaseSession.user.email,
+        app_role: 'client'
+      }, { onConflict: 'id', ignoreDuplicates: true });
+    if (error) {
+      console.warn('Nao foi possivel garantir profile:', error);
+    }
+  }
+
   function localMapsKey(workspaceId) {
     return 'by_people_local_mindmaps_' + workspaceId;
   }
@@ -1096,8 +1167,12 @@
       renderWorkspaceOptions();
       loadMindmapsForWorkspace(currentWorkspaceId);
       setAuthStatus(supabaseClient ? 'Entre com seu email para salvar na nuvem. Agora voce esta em modo local.' : 'Supabase nao configurado. Usando modo local neste navegador.');
+      updateAuthUi();
       return;
     }
+
+    updateAuthUi();
+    await ensureCurrentProfile();
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
@@ -1326,28 +1401,44 @@
       alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify para ativar login.');
       return;
     }
-    const email = authEmail.value.trim();
+    const email = (authModalEmail.value.trim() || authEmail.value.trim());
     if (!email) {
-      alert('Digite seu email.');
+      authModalStatus.textContent = 'Digite seu email para receber o link.';
       return;
     }
+    authModalSubmit.disabled = true;
+    authModalStatus.textContent = 'Enviando link de acesso...';
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin }
+      options: { emailRedirectTo: window.location.href.split('#')[0] }
     });
+    authModalSubmit.disabled = false;
     if (error) {
-      alert('Erro ao enviar login:\n\n' + error.message);
+      authModalStatus.textContent = 'Erro: ' + error.message;
       return;
     }
+    authEmail.value = email;
+    authModalStatus.textContent = 'Link enviado. Abra seu email e confirme o acesso.';
     setAuthStatus('Enviamos um link de acesso para ' + email + '.');
   }
 
   async function signOut() {
-    if (!supabaseClient) return;
+    if (!supabaseClient) {
+      showStatus('Supabase nao esta configurado.', 2400);
+      return;
+    }
+    if (!supabaseSession) {
+      showStatus('Voce nao esta logado. Nada para sair.', 2400);
+      updateAuthUi();
+      return;
+    }
     await supabaseClient.auth.signOut();
     supabaseSession = null;
     currentWorkspaceId = '';
+    currentMapId = null;
     attemptedWorkspaceBootstrap = false;
+    setAuthStatus('Voce saiu da conta. Modo local ativo.');
+    updateAuthUi();
     await loadWorkspaces();
   }
 
@@ -1359,9 +1450,11 @@
       supabaseSession = data.session;
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         supabaseSession = session;
+        if (session) closeAuthModal();
         await loadWorkspaces();
       });
     }
+    updateAuthUi();
     await loadWorkspaces();
   }
 
@@ -1756,8 +1849,16 @@
   });
   document.getElementById('btn-new-map').addEventListener('click', createNewMindmap);
   document.getElementById('btn-save-map').addEventListener('click', saveCurrentMindmap);
-  loginBtn.addEventListener('click', signInWithEmail);
+  loginBtn.addEventListener('click', openAuthModal);
   logoutBtn.addEventListener('click', signOut);
+  document.getElementById('auth-modal-cancel').addEventListener('click', closeAuthModal);
+  authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) closeAuthModal();
+  });
+  authModalSubmit.addEventListener('click', signInWithEmail);
+  authModalEmail.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') signInWithEmail();
+  });
   mapTitleInput.addEventListener('input', () => {
     currentMapTitle = mapTitleInput.value.trim() || 'Mapa sem titulo';
   });
@@ -1845,6 +1946,9 @@
     if (aiModal.classList.contains('show')) {
       aiModal.classList.remove('show');
       aiModal.setAttribute('aria-hidden', 'true');
+    }
+    if (authModal.classList.contains('show')) {
+      closeAuthModal();
     }
     hideNodeMenu();
   });
