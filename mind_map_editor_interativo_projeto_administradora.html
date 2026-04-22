@@ -121,6 +121,11 @@
       color: #ffffff;
       border-color: transparent;
     }
+    .toolbar .success {
+      background: #168c72;
+      color: #ffffff;
+      border-color: transparent;
+    }
     .appearance-panel {
       display: grid;
       grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
@@ -211,6 +216,83 @@
       border-radius: 999px;
       padding: 6px 10px;
     }
+    .status-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 120;
+      display: none;
+      max-width: min(420px, calc(100% - 32px));
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      font-size: 12px;
+      box-shadow: 0 10px 28px rgba(32, 87, 106, 0.14);
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(12, 28, 38, 0.48);
+      backdrop-filter: blur(8px);
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      width: min(720px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      padding: 22px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 24px 70px rgba(21, 58, 74, 0.24);
+    }
+    .modal h2 {
+      margin: 0 0 6px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+    .modal p {
+      margin: 0 0 14px;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .modal textarea {
+      width: 100%;
+      min-height: 260px;
+      resize: vertical;
+      padding: 13px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      outline: none;
+      font: 13px/1.5 "Segoe UI", Arial, sans-serif;
+      color: var(--text-main);
+      background: #f8fbfc;
+    }
+    .modal textarea:focus { border-color: var(--brand-teal); box-shadow: 0 0 0 3px rgba(104,188,192,0.18); }
+    .modal-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
     @media (max-width: 900px) {
       .topbar { align-items: flex-start; flex-direction: column; }
       .brand { flex-direction: column; align-items: flex-start; }
@@ -235,6 +317,8 @@
 </header>
 
 <div class="toolbar">
+  <button id="btn-ai" class="primary" type="button">Gerar do texto</button>
+  <button id="btn-export-text" class="success" type="button">Exportar texto</button>
   <button id="btn-expand-all" type="button">Expandir tudo</button>
   <button id="btn-collapse-all" type="button">Recolher tudo</button>
   <button id="btn-reset" type="button">Restaurar padrao</button>
@@ -285,7 +369,24 @@
     <button id="btn-zoom-reset" type="button"><span id="zoom-pct">100%</span></button>
     <button id="btn-zoom-in" type="button">+</button>
   </div>
+  <div id="status-badge" class="status-badge"></div>
   <div id="hint">scroll = zoom - arrastar fundo = mover</div>
+</div>
+
+<div class="modal-overlay" id="ai-modal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title">
+    <h2 id="ai-modal-title">Gerar mind map da reuniao</h2>
+    <p>Cole a transcricao, ata ou anotacoes. A IA vai transformar o conteudo automaticamente em ramos e sub-ramos.</p>
+    <textarea id="ai-input" placeholder="Cole aqui o texto da reuniao..."></textarea>
+    <div class="modal-meta">
+      <span id="ai-char-count">0 caracteres</span>
+      <span>Usa o backend /api/generate-mindmap</span>
+    </div>
+    <div class="modal-actions">
+      <button id="ai-cancel" type="button">Cancelar</button>
+      <button id="ai-generate" class="primary" type="button">Gerar mapa</button>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -380,6 +481,10 @@
   const canvas = document.getElementById('canvas');
   const svg = document.getElementById('edges');
   const zoomPctEl = document.getElementById('zoom-pct');
+  const statusBadge = document.getElementById('status-badge');
+  const aiModal = document.getElementById('ai-modal');
+  const aiInput = document.getElementById('ai-input');
+  const aiCharCount = document.getElementById('ai-char-count');
 
   const DEFAULT_TREE = {
     id: 'root', text: 'Central Inteligente\nAdministradora de CondomÃ­nios', level: 0,
@@ -497,6 +602,21 @@
     document.getElementById('color-node-border').value = currentStyle.nodeBorder;
     document.getElementById('color-edge').value = currentStyle.edge;
     document.getElementById('color-root-bg').value = currentStyle.rootBg;
+  }
+
+  function showStatus(message, duration) {
+    statusBadge.textContent = message;
+    statusBadge.style.display = 'block';
+    if (duration) {
+      window.clearTimeout(showStatus.timer);
+      showStatus.timer = window.setTimeout(() => {
+        statusBadge.style.display = 'none';
+      }, duration);
+    }
+  }
+
+  function hideStatus() {
+    statusBadge.style.display = 'none';
   }
 
   function rebuildIndex(node, parent) {
@@ -639,6 +759,71 @@
     return count;
   }
 
+  function cleanAIJson(responseText) {
+    let cleaned = String(responseText || '').replace(/```json|```/g, '').trim();
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+    return JSON.parse(cleaned);
+  }
+
+  async function callMindmapBackend(text) {
+    const response = await fetch('/api/generate-mindmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message = data && data.error ? data.error : 'Erro ao gerar mapa.';
+      throw new Error(message);
+    }
+
+    return typeof data === 'string' ? data : JSON.stringify(data);
+  }
+
+  function normalizeAINode(aiNode, level) {
+    const safeLevel = Math.min(level, 3);
+    const children = (aiNode.children || [])
+      .slice(0, safeLevel === 0 ? 8 : 7)
+      .map(child => normalizeAINode(child, safeLevel + 1));
+
+    return {
+      id: safeLevel === 0 ? 'root' : newId(),
+      text: String(aiNode.text || 'Novo topico').trim().slice(0, 80),
+      level: safeLevel,
+      x: 0,
+      y: 0,
+      collapsed: false,
+      children
+    };
+  }
+
+  function layoutTree(node, x, y) {
+    node.x = x;
+    node.y = y;
+    const children = node.children || [];
+    if (!children.length) return;
+
+    const spacing = node.level === 0 ? 170 : (node.level === 1 ? 54 : 42);
+    const offset = (children.length - 1) / 2;
+    children.forEach((child, index) => {
+      layoutTree(child, x + 280, y + (index - offset) * spacing);
+    });
+  }
+
+  function outlineText(node, depth) {
+    const prefix = depth === 0 ? '' : '  '.repeat(depth - 1) + '- ';
+    const lines = [prefix + node.text.replace(/\s+/g, ' ')];
+    (node.children || []).forEach(child => {
+      lines.push(outlineText(child, depth + 1));
+    });
+    return lines.join('\n');
+  }
+
   function drawEdges() {
     const rect = container.getBoundingClientRect();
     svg.setAttribute('width', rect.width);
@@ -766,6 +951,58 @@
     drawEdges();
   });
 
+  document.getElementById('btn-ai').addEventListener('click', () => {
+    aiModal.classList.add('show');
+    aiModal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => aiInput.focus(), 80);
+  });
+
+  document.getElementById('ai-cancel').addEventListener('click', () => {
+    aiModal.classList.remove('show');
+    aiModal.setAttribute('aria-hidden', 'true');
+  });
+
+  aiModal.addEventListener('click', (e) => {
+    if (e.target === aiModal) {
+      aiModal.classList.remove('show');
+      aiModal.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  aiInput.addEventListener('input', () => {
+    aiCharCount.textContent = aiInput.value.length + ' caracteres';
+  });
+
+  document.getElementById('ai-generate').addEventListener('click', async () => {
+    const text = aiInput.value.trim();
+    if (!text) {
+      alert('Cole o texto da reuniao primeiro.');
+      return;
+    }
+    if (text.length < 50) {
+      alert('O texto esta muito curto. Cole pelo menos um paragrafo da reuniao.');
+      return;
+    }
+
+    aiModal.classList.remove('show');
+    aiModal.setAttribute('aria-hidden', 'true');
+    showStatus('Gerando mapa com IA...');
+
+    try {
+      const aiText = await callMindmapBackend(text);
+      const aiJson = cleanAIJson(aiText);
+      const nextTree = normalizeAINode(aiJson, 0);
+      layoutTree(nextTree, 0, 0);
+      tree = nextTree;
+      view = { tx: 260, ty: 360, scale: 0.72 };
+      render();
+      showStatus('Mapa gerado automaticamente.', 3500);
+    } catch (err) {
+      hideStatus();
+      alert('Nao foi possivel gerar o mapa:\n\n' + err.message);
+    }
+  });
+
   document.getElementById('btn-expand-all').addEventListener('click', () => {
     walk(tree, n => n.collapsed = false);
     render();
@@ -790,6 +1027,17 @@
     const a = document.createElement('a');
     a.href = url;
     a.download = 'mindmap_projeto.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btn-export-text').addEventListener('click', () => {
+    const data = outlineText(tree, 0);
+    const blob = new Blob([data], { type:'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mindmap_topicos.txt';
     a.click();
     URL.revokeObjectURL(url);
   });
