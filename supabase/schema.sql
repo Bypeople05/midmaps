@@ -7,6 +7,13 @@ create table if not exists public.workspaces (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text,
+  app_role text not null default 'client' check (app_role in ('admin', 'client')),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.workspace_members (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -30,6 +37,22 @@ create index if not exists idx_workspace_members_user_id on public.workspace_mem
 create index if not exists idx_workspace_members_workspace_id on public.workspace_members(workspace_id);
 create index if not exists idx_mindmaps_workspace_id on public.mindmaps(workspace_id);
 create index if not exists idx_mindmaps_updated_at on public.mindmaps(updated_at desc);
+
+alter table public.profiles add column if not exists full_name text;
+alter table public.profiles add column if not exists app_role text not null default 'client';
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'profiles_app_role_check'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles
+      add constraint profiles_app_role_check check (app_role in ('admin', 'client'));
+  end if;
+end $$;
 
 create or replace function public.touch_updated_at()
 returns trigger
@@ -61,6 +84,21 @@ as $$
   );
 $$;
 
+create or replace function public.is_app_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.app_role = 'admin'
+  );
+$$;
+
 create or replace function public.is_workspace_admin(target_workspace_id uuid)
 returns boolean
 language sql
@@ -74,8 +112,27 @@ as $$
     where wm.workspace_id = target_workspace_id
       and wm.user_id = auth.uid()
       and wm.role in ('owner', 'admin')
-  );
+  ) or public.is_app_admin();
 $$;
+
+create or replace function public.add_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name, app_role)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.email), 'client')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists auth_add_user_profile on auth.users;
+create trigger auth_add_user_profile
+after insert on auth.users
+for each row execute function public.add_user_profile();
 
 create or replace function public.add_workspace_owner()
 returns trigger
@@ -99,13 +156,25 @@ after insert on public.workspaces
 for each row execute function public.add_workspace_owner();
 
 alter table public.workspaces enable row level security;
+alter table public.profiles enable row level security;
 alter table public.workspace_members enable row level security;
 alter table public.mindmaps enable row level security;
+
+drop policy if exists "profiles_select_self_or_admin" on public.profiles;
+create policy "profiles_select_self_or_admin"
+on public.profiles for select
+using (id = auth.uid() or public.is_app_admin());
+
+drop policy if exists "profiles_update_self" on public.profiles;
+create policy "profiles_update_self"
+on public.profiles for update
+using (id = auth.uid())
+with check (id = auth.uid() and app_role = (select p.app_role from public.profiles p where p.id = auth.uid()));
 
 drop policy if exists "workspaces_select_members" on public.workspaces;
 create policy "workspaces_select_members"
 on public.workspaces for select
-using (public.is_workspace_member(id));
+using (public.is_workspace_member(id) or public.is_app_admin());
 
 drop policy if exists "workspaces_insert_authenticated" on public.workspaces;
 create policy "workspaces_insert_authenticated"
@@ -121,7 +190,7 @@ with check (public.is_workspace_admin(id));
 drop policy if exists "workspace_members_select_related" on public.workspace_members;
 create policy "workspace_members_select_related"
 on public.workspace_members for select
-using (user_id = auth.uid() or public.is_workspace_admin(workspace_id));
+using (user_id = auth.uid() or public.is_workspace_admin(workspace_id) or public.is_app_admin());
 
 drop policy if exists "workspace_members_manage_admins" on public.workspace_members;
 create policy "workspace_members_manage_admins"
@@ -132,20 +201,20 @@ with check (public.is_workspace_admin(workspace_id));
 drop policy if exists "mindmaps_select_members" on public.mindmaps;
 create policy "mindmaps_select_members"
 on public.mindmaps for select
-using (public.is_workspace_member(workspace_id));
+using (public.is_workspace_member(workspace_id) or public.is_app_admin());
 
 drop policy if exists "mindmaps_insert_members" on public.mindmaps;
 create policy "mindmaps_insert_members"
 on public.mindmaps for insert
-with check (public.is_workspace_member(workspace_id));
+with check (public.is_workspace_member(workspace_id) or public.is_app_admin());
 
 drop policy if exists "mindmaps_update_members" on public.mindmaps;
 create policy "mindmaps_update_members"
 on public.mindmaps for update
-using (public.is_workspace_member(workspace_id))
-with check (public.is_workspace_member(workspace_id));
+using (public.is_workspace_member(workspace_id) or public.is_app_admin())
+with check (public.is_workspace_member(workspace_id) or public.is_app_admin());
 
 drop policy if exists "mindmaps_delete_admins" on public.mindmaps;
 create policy "mindmaps_delete_admins"
 on public.mindmaps for delete
-using (public.is_workspace_admin(workspace_id));
+using (public.is_workspace_admin(workspace_id) or public.is_app_admin());

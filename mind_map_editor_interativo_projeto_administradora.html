@@ -942,6 +942,7 @@
   let currentMapId = null;
   let currentMapTitle = 'Mapa sem titulo';
   let attemptedWorkspaceBootstrap = false;
+  let currentUserRole = 'client';
   const LOCAL_WORKSPACES = [
     { id: 'empresa-cliente-local', name: 'Empresa Cliente' },
     { id: 'by-people-local', name: 'By People' }
@@ -1098,7 +1099,59 @@
       return;
     }
 
-    setAuthStatus('Conectado: ' + supabaseSession.user.email);
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('app_role')
+      .eq('id', supabaseSession.user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Erro ao buscar perfil:', profileError);
+    }
+
+    currentUserRole = profile?.app_role || 'client';
+    setAuthStatus('Conectado: ' + supabaseSession.user.email + (currentUserRole === 'admin' ? ' (admin)' : ''));
+
+    if (currentUserRole === 'admin') {
+      const { data, error } = await supabaseClient
+        .from('workspaces')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao listar todos os workspaces:', error);
+        workspaceItems = [];
+        renderWorkspaceOptions();
+        setAuthStatus('Erro ao carregar workspaces. Verifique as politicas RLS do admin.');
+        return;
+      }
+
+      workspaceItems = (data || []).map(workspace => ({
+        id: workspace.id,
+        name: workspace.name,
+        role: 'admin'
+      }));
+
+      if ((!data || data.length === 0) && !attemptedWorkspaceBootstrap) {
+        attemptedWorkspaceBootstrap = true;
+        const { error: createError } = await supabaseClient
+          .from('workspaces')
+          .insert([
+            { name: 'Empresa Cliente', created_by: supabaseSession.user.id },
+            { name: 'By People', created_by: supabaseSession.user.id }
+          ]);
+        if (!createError) {
+          await loadWorkspaces();
+          return;
+        }
+        console.error('Erro ao criar workspaces iniciais:', createError);
+      }
+
+      renderWorkspaceOptions();
+      if (currentWorkspaceId) await loadMindmapsForWorkspace(currentWorkspaceId);
+      return;
+    }
+
     const { data, error } = await supabaseClient
       .from('workspace_members')
       .select('workspace_id, role, workspaces(id, name)')
@@ -1697,6 +1750,8 @@
   workspaceDropdown.addEventListener('change', async (e) => {
     currentWorkspaceId = e.target.value;
     currentMapId = null;
+    currentMapTitle = 'Mapa sem titulo';
+    mapTitleInput.value = currentMapTitle;
     await loadMindmapsForWorkspace(currentWorkspaceId);
   });
   document.getElementById('btn-new-map').addEventListener('click', createNewMindmap);
