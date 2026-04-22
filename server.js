@@ -22,7 +22,7 @@ function getCorsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400'
   };
 }
@@ -64,6 +64,24 @@ function readJsonBody(req) {
 
 function buildPrompt(text) {
   const truncated = text.substring(0, 15000);
+  return `Voce e um especialista em onboarding SaaS, discovery comercial e estruturacao visual. Analise esta transcricao de reuniao e transforme-a em um JSON estruturado para o nosso mapa mental, focando em objetivos, dores e plano de acao.
+
+TRANSCRICAO DA REUNIAO:
+"""
+${truncated}
+"""
+
+INSTRUCOES:
+1. Identifique o tema central e crie um no raiz (level 0) com titulo curto (maximo 6 palavras).
+2. Identifique 4 a 8 ramos principais (level 1), priorizando: contexto, objetivos, dores, decisoes, requisitos, riscos, plano de acao e proximos passos.
+3. Para cada ramo, adicione 3 a 7 sub-nos (level 2) com pontos especificos extraidos da reuniao.
+4. Se relevante, adicione sub-sub-nos (level 3) para detalhar ainda mais.
+5. Linguagem concisa, cada no com no maximo 6 palavras.
+6. Destaque responsaveis, prazos e pendencias quando aparecerem.
+7. Seja fiel ao conteudo, sem inventar informacoes.
+
+FORMATO DE RESPOSTA (retorne APENAS o JSON, sem markdown, sem explicacao):
+{"text":"Titulo central","level":0,"children":[{"text":"Ramo 1","level":1,"children":[{"text":"Sub-ponto","level":2,"children":[]}]}]}`;
   return `Você é um especialista em análise de texto e estruturação visual. Analise o texto abaixo e gere um mind map no formato JSON exatamente como especificado.
 
 TEXTO PARA ANÁLISE:
@@ -150,6 +168,128 @@ function getPublicConfig() {
   };
 }
 
+function getSupabaseAdminConfig() {
+  return {
+    url: process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  };
+}
+
+async function supabaseAdminRequest(path, options = {}) {
+  const config = getSupabaseAdminConfig();
+  if (!config.url || !config.serviceRoleKey) {
+    throw new Error('Supabase admin nao configurado: falta SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY.');
+  }
+
+  const response = await fetch(`${config.url}${path}`, {
+    ...options,
+    headers: {
+      apikey: config.serviceRoleKey,
+      Authorization: `Bearer ${config.serviceRoleKey}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(payload?.message || payload?.error_description || payload?.error || text || `Supabase retornou ${response.status}`);
+  }
+  return payload;
+}
+
+async function getUserFromAccessToken(accessToken) {
+  const config = getSupabaseAdminConfig();
+  if (!config.url || !config.serviceRoleKey) {
+    throw new Error('Supabase admin nao configurado: falta SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY.');
+  }
+
+  const response = await fetch(`${config.url}/auth/v1/user`, {
+    headers: {
+      apikey: config.serviceRoleKey,
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok || !payload?.id) {
+    throw new Error(payload?.message || 'Sessao invalida.');
+  }
+  return payload;
+}
+
+async function isWorkspaceManager(userId, workspaceId) {
+  const profile = await supabaseAdminRequest(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=app_role`);
+  if (profile?.[0]?.app_role === 'admin') return true;
+
+  const membership = await supabaseAdminRequest(
+    `/rest/v1/workspace_members?workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(userId)}&role=in.(owner,admin)&select=id`
+  );
+  return Array.isArray(membership) && membership.length > 0;
+}
+
+async function inviteWorkspaceMember(req, res, corsHeaders, origin) {
+  const authHeader = req.headers.authorization || '';
+  const accessToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!accessToken) {
+    sendJson(res, 401, { error: 'Login obrigatorio para convidar membros.' }, corsHeaders);
+    return;
+  }
+
+  const body = await readJsonBody(req);
+  const workspaceId = String(body.workspaceId || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const role = ['admin', 'member'].includes(body.role) ? body.role : 'member';
+
+  if (!workspaceId || !email) {
+    sendJson(res, 400, { error: 'workspaceId e email sao obrigatorios.' }, corsHeaders);
+    return;
+  }
+
+  const user = await getUserFromAccessToken(accessToken);
+  const canInvite = await isWorkspaceManager(user.id, workspaceId);
+  if (!canInvite) {
+    sendJson(res, 403, { error: 'Voce nao tem permissao para convidar membros neste workspace.' }, corsHeaders);
+    return;
+  }
+
+  await supabaseAdminRequest('/rest/v1/workspace_invites?on_conflict=workspace_id,email', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({
+      workspace_id: workspaceId,
+      email,
+      role,
+      invited_by: user.id
+    })
+  });
+
+  let inviteEmailSent = true;
+  try {
+    const redirectTo = origin || process.env.PUBLIC_APP_URL || '';
+    const query = redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : '';
+    await supabaseAdminRequest(`/auth/v1/invite${query}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        data: { workspace_id: workspaceId, role }
+      })
+    });
+  } catch (error) {
+    inviteEmailSent = false;
+    console.warn('Convite por email falhou, convite pendente foi salvo:', error.message);
+  }
+
+  sendJson(res, 200, {
+    ok: true,
+    email,
+    workspaceId,
+    inviteEmailSent
+  }, corsHeaders);
+}
+
 function serveStatic(req, res, corsHeaders) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const requestPath = url.pathname === '/' ? `/${INDEX_FILE}` : url.pathname;
@@ -207,6 +347,11 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'POST' && ['/api/generate-mindmap', '/generate-mindmap'].includes(url.pathname)) {
       await generateMindmap(req, res, corsHeaders);
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/invite-member') {
+      await inviteWorkspaceMember(req, res, corsHeaders, origin);
       return;
     }
 

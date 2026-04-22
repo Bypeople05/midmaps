@@ -57,6 +57,7 @@ Variáveis para salvar mapas no Supabase:
 ```txt
 SUPABASE_URL=https://seu-projeto.supabase.co
 SUPABASE_ANON_KEY=sua-chave-anon-publica
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-apenas-no-backend
 ```
 
 Antes de ativar essas variáveis, rode o SQL em `supabase/schema.sql` no SQL Editor do Supabase.

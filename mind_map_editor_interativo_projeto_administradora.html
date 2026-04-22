@@ -602,6 +602,20 @@
     </button>
   </div>
 
+  <button id="btn-ai-sidebar" class="primary" type="button">
+    <i data-lucide="sparkles"></i>
+    <span>Gerar da Transcricao</span>
+  </button>
+
+  <div class="sidebar-section">
+    <label for="invite-email-input">Convidar membro</label>
+    <input id="invite-email-input" type="email" placeholder="cliente@empresa.com">
+    <button id="btn-invite-member" type="button">
+      <i data-lucide="mail-plus"></i>
+      <span>Enviar Convite</span>
+    </button>
+  </div>
+
   <div class="sidebar-section">
     <label>Mapas guardados</label>
     <ul id="map-list" class="map-list">
@@ -729,7 +743,7 @@
 <div class="modal-overlay" id="ai-modal" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title">
     <h2 id="ai-modal-title">Gerar mind map da reuniao</h2>
-    <p>Cole a transcricao, ata ou anotacoes. A IA vai transformar o conteudo automaticamente em ramos e sub-ramos.</p>
+    <p>Cole a transcricao, ata ou anotacoes. A IA vai focar em objetivos, dores e plano de acao, transformando tudo em ramos e sub-ramos.</p>
     <textarea id="ai-input" placeholder="Cole aqui o texto da reuniao..."></textarea>
     <div class="modal-meta">
       <span id="ai-char-count">0 caracteres</span>
@@ -869,6 +883,7 @@
   const mapTitleInput = document.getElementById('map-title-input');
   const authStatus = document.getElementById('auth-status');
   const authEmail = document.getElementById('auth-email');
+  const inviteEmailInput = document.getElementById('invite-email-input');
   const loginBtn = document.getElementById('btn-login');
   const logoutBtn = document.getElementById('btn-logout');
 
@@ -1037,8 +1052,13 @@
     authEmail.classList.toggle('is-hidden', isLogged || !hasSupabase);
     loginBtn.disabled = !hasSupabase || isLogged;
     logoutBtn.disabled = !hasSupabase || !isLogged;
+    document.getElementById('btn-invite-member').disabled = !hasSupabase || !isLogged || !currentWorkspaceId || currentWorkspaceId.endsWith('-local');
     loginBtn.querySelector('span').textContent = isLogged ? 'Logado' : 'Entrar';
     logoutBtn.querySelector('span').textContent = isLogged ? 'Sair' : 'Sair';
+  }
+
+  function getCurrentWorkspaceName() {
+    return workspaceItems.find(workspace => workspace.id === currentWorkspaceId)?.name || '';
   }
 
   function openAuthModal() {
@@ -1073,6 +1093,18 @@
       }, { onConflict: 'id', ignoreDuplicates: true });
     if (error) {
       console.warn('Nao foi possivel garantir profile:', error);
+    }
+  }
+
+  async function acceptPendingWorkspaceInvites() {
+    if (!supabaseClient || !supabaseSession) return;
+    const { data, error } = await supabaseClient.rpc('accept_workspace_invites');
+    if (error) {
+      console.warn('Nao foi possivel aceitar convites pendentes:', error);
+      return;
+    }
+    if (data > 0) {
+      showStatus('Convite aceito. Workspace liberado.', 3000);
     }
   }
 
@@ -1134,6 +1166,11 @@
       currentWorkspaceId = workspaceItems[0].id;
     }
     workspaceDropdown.value = currentWorkspaceId;
+    if (!currentMapId) {
+      currentMapTitle = getCurrentWorkspaceName() || currentMapTitle;
+      mapTitleInput.value = currentMapTitle;
+    }
+    updateAuthUi();
   }
 
   function renderMapList(maps) {
@@ -1173,6 +1210,7 @@
 
     updateAuthUi();
     await ensureCurrentProfile();
+    await acceptPendingWorkspaceInvites();
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
@@ -1334,7 +1372,8 @@
       return;
     }
 
-    const title = mapTitleInput.value.trim() || 'Mapa sem titulo';
+    const title = getCurrentWorkspaceName() || mapTitleInput.value.trim() || 'Mapa sem titulo';
+    mapTitleInput.value = title;
     const payload = getMapPayload();
     showStatus('Salvando mapa...');
 
@@ -1387,7 +1426,7 @@
 
   function createNewMindmap() {
     currentMapId = null;
-    currentMapTitle = 'Novo mapa';
+    currentMapTitle = getCurrentWorkspaceName() || 'Novo mapa';
     mapTitleInput.value = currentMapTitle;
     tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
     view = { tx: 340, ty: 360, scale: 0.7 };
@@ -1440,6 +1479,47 @@
     setAuthStatus('Voce saiu da conta. Modo local ativo.');
     updateAuthUi();
     await loadWorkspaces();
+  }
+
+  async function inviteWorkspaceMember() {
+    if (!supabaseClient || !supabaseSession) {
+      openAuthModal();
+      return;
+    }
+    if (!currentWorkspaceId || currentWorkspaceId.endsWith('-local')) {
+      alert('Selecione um workspace salvo no Supabase antes de convidar.');
+      return;
+    }
+    const email = inviteEmailInput.value.trim().toLowerCase();
+    if (!email) {
+      alert('Digite o email do cliente.');
+      return;
+    }
+
+    showStatus('Enviando convite...');
+    try {
+      const response = await fetch('/api/invite-member', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + supabaseSession.access_token
+        },
+        body: JSON.stringify({
+          workspaceId: currentWorkspaceId,
+          email,
+          role: 'member'
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao enviar convite.');
+      }
+      inviteEmailInput.value = '';
+      showStatus(data.inviteEmailSent ? 'Convite enviado por email.' : 'Convite salvo. Verifique as configs de email do Supabase.', 4200);
+    } catch (err) {
+      hideStatus();
+      alert('Nao foi possivel convidar:\n\n' + err.message);
+    }
   }
 
   async function initSupabase() {
@@ -1843,12 +1923,17 @@
   workspaceDropdown.addEventListener('change', async (e) => {
     currentWorkspaceId = e.target.value;
     currentMapId = null;
-    currentMapTitle = 'Mapa sem titulo';
+    currentMapTitle = getCurrentWorkspaceName() || 'Mapa sem titulo';
     mapTitleInput.value = currentMapTitle;
+    updateAuthUi();
     await loadMindmapsForWorkspace(currentWorkspaceId);
   });
   document.getElementById('btn-new-map').addEventListener('click', createNewMindmap);
   document.getElementById('btn-save-map').addEventListener('click', saveCurrentMindmap);
+  document.getElementById('btn-invite-member').addEventListener('click', inviteWorkspaceMember);
+  inviteEmailInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') inviteWorkspaceMember();
+  });
   loginBtn.addEventListener('click', openAuthModal);
   logoutBtn.addEventListener('click', signOut);
   document.getElementById('auth-modal-cancel').addEventListener('click', closeAuthModal);
@@ -1920,6 +2005,12 @@
     aiModal.setAttribute('aria-hidden', 'false');
     setTimeout(() => aiInput.focus(), 80);
   });
+  document.getElementById('btn-ai-sidebar').addEventListener('click', () => {
+    closeSidebar();
+    aiModal.classList.add('show');
+    aiModal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => aiInput.focus(), 80);
+  });
 
   document.getElementById('ai-cancel').addEventListener('click', () => {
     aiModal.classList.remove('show');
@@ -1975,7 +2066,7 @@
       layoutTree(nextTree, 0, 0);
       tree = nextTree;
       currentMapId = null;
-      currentMapTitle = nextTree.text || 'Mapa gerado';
+      currentMapTitle = getCurrentWorkspaceName() || nextTree.text || 'Mapa gerado';
       mapTitleInput.value = currentMapTitle;
       view = { tx: 260, ty: 360, scale: 0.72 };
       render();

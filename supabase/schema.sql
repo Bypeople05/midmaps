@@ -33,10 +33,23 @@ create table if not exists public.mindmaps (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.workspace_invites (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  email text not null,
+  role text not null default 'member' check (role in ('admin', 'member')),
+  invited_by uuid references auth.users(id) on delete set null,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (workspace_id, email)
+);
+
 create index if not exists idx_workspace_members_user_id on public.workspace_members(user_id);
 create index if not exists idx_workspace_members_workspace_id on public.workspace_members(workspace_id);
 create index if not exists idx_mindmaps_workspace_id on public.mindmaps(workspace_id);
 create index if not exists idx_mindmaps_updated_at on public.mindmaps(updated_at desc);
+create index if not exists idx_workspace_invites_email on public.workspace_invites(lower(email));
+create index if not exists idx_workspace_invites_workspace_id on public.workspace_invites(workspace_id);
 
 alter table public.profiles add column if not exists full_name text;
 alter table public.profiles add column if not exists app_role text not null default 'client';
@@ -155,10 +168,48 @@ create trigger workspaces_add_owner
 after insert on public.workspaces
 for each row execute function public.add_workspace_owner();
 
+create or replace function public.accept_workspace_invites()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  accepted_count integer;
+  current_email text;
+begin
+  current_email := lower(coalesce(auth.jwt()->>'email', ''));
+
+  if auth.uid() is null or current_email = '' then
+    return 0;
+  end if;
+
+  insert into public.workspace_members (workspace_id, user_id, role)
+  select wi.workspace_id, auth.uid(), wi.role
+  from public.workspace_invites wi
+  where lower(wi.email) = current_email
+    and wi.accepted_at is null
+  on conflict (workspace_id, user_id)
+  do update set role = excluded.role;
+
+  get diagnostics accepted_count = row_count;
+
+  update public.workspace_invites wi
+  set accepted_at = now()
+  where lower(wi.email) = current_email
+    and wi.accepted_at is null;
+
+  return accepted_count;
+end;
+$$;
+
+grant execute on function public.accept_workspace_invites() to authenticated;
+
 alter table public.workspaces enable row level security;
 alter table public.profiles enable row level security;
 alter table public.workspace_members enable row level security;
 alter table public.mindmaps enable row level security;
+alter table public.workspace_invites enable row level security;
 
 drop policy if exists "profiles_select_self_or_admin" on public.profiles;
 create policy "profiles_select_self_or_admin"
@@ -202,6 +253,21 @@ create policy "workspace_members_manage_admins"
 on public.workspace_members for all
 using (public.is_workspace_admin(workspace_id))
 with check (public.is_workspace_admin(workspace_id));
+
+drop policy if exists "workspace_invites_select_related" on public.workspace_invites;
+create policy "workspace_invites_select_related"
+on public.workspace_invites for select
+using (
+  public.is_workspace_admin(workspace_id)
+  or lower(email) = lower(coalesce(auth.jwt()->>'email', ''))
+  or public.is_app_admin()
+);
+
+drop policy if exists "workspace_invites_manage_admins" on public.workspace_invites;
+create policy "workspace_invites_manage_admins"
+on public.workspace_invites for all
+using (public.is_workspace_admin(workspace_id) or public.is_app_admin())
+with check (public.is_workspace_admin(workspace_id) or public.is_app_admin());
 
 drop policy if exists "mindmaps_select_members" on public.mindmaps;
 create policy "mindmaps_select_members"
