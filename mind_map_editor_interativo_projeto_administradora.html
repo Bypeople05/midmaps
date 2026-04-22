@@ -1025,18 +1025,28 @@
 
   window.toggleSidebar = toggleSidebar;
 
+  function normalizeSupabaseUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      return new URL(raw).origin;
+    } catch (err) {
+      return raw.replace(/\/+(auth|rest)\/v1\/?$/i, '').replace(/\/+$/g, '');
+    }
+  }
+
   async function loadPublicConfig() {
     const manualConfig = window.SUPABASE_CONFIG || {};
     try {
       const response = await fetch('/api/config');
       const serverConfig = response.ok ? await response.json() : {};
       return {
-        supabaseUrl: manualConfig.supabaseUrl || serverConfig.supabaseUrl || '',
+        supabaseUrl: normalizeSupabaseUrl(manualConfig.supabaseUrl || serverConfig.supabaseUrl || ''),
         supabaseAnonKey: manualConfig.supabaseAnonKey || serverConfig.supabaseAnonKey || ''
       };
     } catch (err) {
       return {
-        supabaseUrl: manualConfig.supabaseUrl || '',
+        supabaseUrl: normalizeSupabaseUrl(manualConfig.supabaseUrl || ''),
         supabaseAnonKey: manualConfig.supabaseAnonKey || ''
       };
     }
@@ -1454,9 +1464,10 @@
     }
     authModalSubmit.disabled = true;
     authModalStatus.textContent = 'Enviando link de acesso...';
+    const emailRedirectTo = window.location.origin + window.location.pathname;
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.href.split('#')[0] }
+      options: { emailRedirectTo }
     });
     authModalSubmit.disabled = false;
     if (error) {

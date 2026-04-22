@@ -27,6 +27,19 @@ function getCorsHeaders(origin) {
   };
 }
 
+function normalizeSupabaseUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw
+      .replace(/\/+(auth|rest)\/v1\/?$/i, '')
+      .replace(/\/+$/g, '');
+  }
+}
+
 function sendJson(res, status, payload, headers = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -162,15 +175,17 @@ async function generateMindmap(req, res, corsHeaders) {
 }
 
 function getPublicConfig() {
+  const supabaseUrl = normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '');
   return {
-    supabaseUrl: process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '',
+    supabaseUrl,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY || ''
   };
 }
 
 function getSupabaseAdminConfig() {
+  const url = normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '');
   return {
-    url: process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '',
+    url,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
   };
 }
