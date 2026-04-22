@@ -1049,10 +1049,16 @@
   function updateAuthUi() {
     const hasSupabase = Boolean(supabaseClient);
     const isLogged = Boolean(supabaseSession);
+    const inviteBtn = document.getElementById('btn-invite-member');
+    const isCloudWorkspace = Boolean(currentWorkspaceId) && !currentWorkspaceId.endsWith('-local');
     authEmail.classList.toggle('is-hidden', isLogged || !hasSupabase);
     loginBtn.disabled = !hasSupabase || isLogged;
     logoutBtn.disabled = !hasSupabase || !isLogged;
-    document.getElementById('btn-invite-member').disabled = !hasSupabase || !isLogged || !currentWorkspaceId || currentWorkspaceId.endsWith('-local');
+    inviteBtn.disabled = isLogged && !isCloudWorkspace;
+    inviteBtn.title = !hasSupabase
+      ? 'Configure o Supabase no Coolify para enviar convites.'
+      : (!isLogged ? 'Entre com sua conta para enviar o convite.' : (isCloudWorkspace ? 'Enviar convite para este workspace.' : 'Selecione um workspace salvo na nuvem.'));
+    inviteBtn.querySelector('span').textContent = isLogged ? 'Enviar Convite' : 'Entrar para convidar';
     loginBtn.querySelector('span').textContent = isLogged ? 'Logado' : 'Entrar';
     logoutBtn.querySelector('span').textContent = isLogged ? 'Sair' : 'Sair';
   }
@@ -1061,7 +1067,7 @@
     return workspaceItems.find(workspace => workspace.id === currentWorkspaceId)?.name || '';
   }
 
-  function openAuthModal() {
+  function openAuthModal(prefillEmail) {
     if (!supabaseClient) {
       alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify e faca redeploy para ativar login.');
       return;
@@ -1070,7 +1076,8 @@
       showStatus('Voce ja esta logado.', 2200);
       return;
     }
-    authModalEmail.value = authEmail.value.trim();
+    const suggestedEmail = typeof prefillEmail === 'string' ? prefillEmail : '';
+    authModalEmail.value = suggestedEmail || authEmail.value.trim() || inviteEmailInput.value.trim();
     authModalStatus.textContent = 'Sem senha. O acesso chega por email.';
     authModal.classList.add('show');
     authModal.setAttribute('aria-hidden', 'false');
@@ -1483,7 +1490,8 @@
 
   async function inviteWorkspaceMember() {
     if (!supabaseClient || !supabaseSession) {
-      openAuthModal();
+      openAuthModal(inviteEmailInput.value.trim() || authEmail.value.trim());
+      showStatus('Entre com sua conta para enviar convites.', 2600);
       return;
     }
     if (!currentWorkspaceId || currentWorkspaceId.endsWith('-local')) {
