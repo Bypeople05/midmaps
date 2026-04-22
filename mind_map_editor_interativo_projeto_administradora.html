@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --page-bg: #f5f8fb;
@@ -71,7 +72,156 @@
     .app-shell {
       max-width: 1680px;
       margin: 0 auto;
+      padding-left: 54px;
     }
+    .sidebar-toggle {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 760;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+    }
+    .sidebar {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      bottom: 14px;
+      z-index: 850;
+      width: 318px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 18px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid rgba(216,228,236,0.92);
+      border-radius: 22px;
+      box-shadow: 0 24px 70px rgba(32, 87, 106, 0.18);
+      backdrop-filter: blur(18px);
+      transform: translateX(0);
+      transition: transform 0.24s ease, opacity 0.24s ease;
+    }
+    .sidebar.collapsed {
+      transform: translateX(calc(-100% - 24px));
+      opacity: 0;
+      pointer-events: none;
+    }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .sidebar-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .sidebar-subtitle {
+      margin: 2px 0 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .sidebar-section {
+      display: grid;
+      gap: 8px;
+    }
+    .sidebar label {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .sidebar select,
+    .sidebar input[type="text"],
+    .sidebar input[type="email"] {
+      width: 100%;
+      min-height: 38px;
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: rgba(255,255,255,0.86);
+      color: var(--text-main);
+      font: inherit;
+      outline: none;
+    }
+    .sidebar select:focus,
+    .sidebar input:focus {
+      border-color: var(--brand-teal);
+      box-shadow: 0 0 0 3px rgba(104,188,192,0.16);
+    }
+    .sidebar-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .sidebar-actions .full {
+      grid-column: 1 / -1;
+    }
+    .map-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 8px;
+      overflow: auto;
+      min-height: 90px;
+      max-height: 34vh;
+    }
+    .map-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 11px;
+      border: 1px solid rgba(216,228,236,0.82);
+      border-radius: 12px;
+      background: rgba(248,251,252,0.88);
+      color: var(--text-main);
+      cursor: pointer;
+      font-size: 13px;
+      box-shadow: 0 8px 22px rgba(42, 93, 112, 0.06);
+    }
+    .map-list li:hover,
+    .map-list li.active {
+      background: #edf8fa;
+      border-color: #9bd0d3;
+    }
+    .map-list small {
+      color: var(--text-muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .map-list .muted {
+      color: var(--text-muted);
+      cursor: default;
+    }
+    .auth-panel {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      gap: 8px;
+    }
+    .auth-status {
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 820;
+      display: none;
+      background: rgba(11, 30, 42, 0.16);
+    }
+    .sidebar-backdrop.show { display: block; }
     .topbar {
       display: flex;
       align-items: center;
@@ -154,6 +304,7 @@
       background: var(--border);
       margin: 0 2px;
     }
+    button.primary,
     .toolbar .primary,
     .presentation-exit {
       background: linear-gradient(135deg, var(--brand-blue), var(--brand-teal));
@@ -363,6 +514,7 @@
     }
     @media (max-width: 900px) {
       .topbar { align-items: flex-start; flex-direction: column; }
+      .app-shell { padding-left: 0; padding-top: 54px; }
       .brand { flex-direction: column; align-items: flex-start; }
       .brand-copy { padding-left: 0; border-left: 0; }
       .node-menu {
@@ -378,8 +530,12 @@
     body.presentation-mode .app-shell {
       max-width: none;
       margin: 0;
+      padding: 0;
     }
     body.presentation-mode .topbar,
+    body.presentation-mode .sidebar,
+    body.presentation-mode .sidebar-toggle,
+    body.presentation-mode .sidebar-backdrop,
     body.presentation-mode .toolbar,
     body.presentation-mode .hint-panel,
     body.presentation-mode #hint,
@@ -399,6 +555,69 @@
   </style>
 </head>
 <body>
+<button id="sidebar-toggle" class="sidebar-toggle" type="button" title="Meus mapas" aria-label="Abrir meus mapas">
+  <i data-lucide="panel-left-open"></i>
+</button>
+
+<div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+<aside id="sidebar" class="sidebar collapsed" aria-label="Workspaces e mapas">
+  <div class="sidebar-header">
+    <div>
+      <h2 class="sidebar-title">Meus Mapas</h2>
+      <p class="sidebar-subtitle">Workspaces, clientes e arquivos</p>
+    </div>
+    <button id="sidebar-close" class="icon-btn" type="button" title="Fechar" aria-label="Fechar sidebar">
+      <i data-lucide="x"></i>
+    </button>
+  </div>
+
+  <div class="sidebar-section">
+    <label for="workspace-dropdown">Workspace</label>
+    <select id="workspace-dropdown">
+      <option value="">Carregando...</option>
+    </select>
+  </div>
+
+  <div class="sidebar-section">
+    <label for="map-title-input">Titulo do mapa atual</label>
+    <input id="map-title-input" type="text" value="Mapa sem titulo">
+  </div>
+
+  <div class="sidebar-actions">
+    <button id="btn-new-map" type="button">
+      <i data-lucide="plus"></i>
+      <span>Novo</span>
+    </button>
+    <button id="btn-save-map" class="primary" type="button">
+      <i data-lucide="cloud"></i>
+      <span>Salvar</span>
+    </button>
+  </div>
+
+  <div class="sidebar-section">
+    <label>Mapas guardados</label>
+    <ul id="map-list" class="map-list">
+      <li class="muted">Carregando mapas...</li>
+    </ul>
+  </div>
+
+  <div class="auth-panel">
+    <div id="auth-status" class="auth-status">Conectando ao Supabase...</div>
+    <input id="auth-email" type="email" placeholder="email@empresa.com">
+    <div class="sidebar-actions">
+      <button id="btn-login" type="button">
+        <i data-lucide="log-in"></i>
+        <span>Entrar</span>
+      </button>
+      <button id="btn-logout" type="button">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </div>
+</aside>
+
 <div class="app-shell">
 <h2 class="sr-only">Mind map editor interativo do projeto Central Inteligente - arraste, edite, adicione e remova nos livremente</h2>
 
@@ -617,6 +836,15 @@
   const nodeTextColor = document.getElementById('node-text-color');
   const nodeBorderColor = document.getElementById('node-border-color');
   const nodeDeleteBtn = document.getElementById('node-delete');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  const workspaceDropdown = document.getElementById('workspace-dropdown');
+  const mapList = document.getElementById('map-list');
+  const mapTitleInput = document.getElementById('map-title-input');
+  const authStatus = document.getElementById('auth-status');
+  const authEmail = document.getElementById('auth-email');
+  const loginBtn = document.getElementById('btn-login');
+  const logoutBtn = document.getElementById('btn-logout');
 
   const DEFAULT_TREE = {
     id: 'root', text: 'Central Inteligente\nAdministradora de CondomÃ­nios', level: 0,
@@ -707,6 +935,17 @@
   let selectedNode = null;
   let selectedNodeEl = null;
   let suppressNextNodeClick = false;
+  let supabaseClient = null;
+  let supabaseSession = null;
+  let workspaceItems = [];
+  let currentWorkspaceId = '';
+  let currentMapId = null;
+  let currentMapTitle = 'Mapa sem titulo';
+  let attemptedWorkspaceBootstrap = false;
+  const LOCAL_WORKSPACES = [
+    { id: 'empresa-cliente-local', name: 'Empresa Cliente' },
+    { id: 'by-people-local', name: 'By People' }
+  ];
 
   function showStatus(message, duration) {
     statusBadge.textContent = message;
@@ -721,6 +960,356 @@
 
   function hideStatus() {
     statusBadge.style.display = 'none';
+  }
+
+  function isCloudMode() {
+    return Boolean(supabaseClient && supabaseSession && currentWorkspaceId && !currentWorkspaceId.endsWith('-local'));
+  }
+
+  function openSidebar() {
+    sidebar.classList.remove('collapsed');
+    sidebarBackdrop.classList.add('show');
+  }
+
+  function closeSidebar() {
+    sidebar.classList.add('collapsed');
+    sidebarBackdrop.classList.remove('show');
+  }
+
+  function toggleSidebar() {
+    if (sidebar.classList.contains('collapsed')) openSidebar();
+    else closeSidebar();
+  }
+
+  window.toggleSidebar = toggleSidebar;
+
+  async function loadPublicConfig() {
+    const manualConfig = window.SUPABASE_CONFIG || {};
+    try {
+      const response = await fetch('/api/config');
+      const serverConfig = response.ok ? await response.json() : {};
+      return {
+        supabaseUrl: manualConfig.supabaseUrl || serverConfig.supabaseUrl || '',
+        supabaseAnonKey: manualConfig.supabaseAnonKey || serverConfig.supabaseAnonKey || ''
+      };
+    } catch (err) {
+      return {
+        supabaseUrl: manualConfig.supabaseUrl || '',
+        supabaseAnonKey: manualConfig.supabaseAnonKey || ''
+      };
+    }
+  }
+
+  function setAuthStatus(message) {
+    authStatus.textContent = message;
+  }
+
+  function localMapsKey(workspaceId) {
+    return 'by_people_local_mindmaps_' + workspaceId;
+  }
+
+  function readLocalMaps(workspaceId) {
+    try {
+      return JSON.parse(localStorage.getItem(localMapsKey(workspaceId)) || '[]');
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function writeLocalMaps(workspaceId, maps) {
+    try { localStorage.setItem(localMapsKey(workspaceId), JSON.stringify(maps)); } catch (err) {}
+  }
+
+  function getMapPayload() {
+    return {
+      version: 1,
+      tree,
+      view,
+      savedAt: new Date().toISOString()
+    };
+  }
+
+  function applyMapPayload(mapData) {
+    const nextTree = mapData && mapData.tree ? mapData.tree : mapData;
+    const nextView = mapData && mapData.view ? mapData.view : { tx: 340, ty: 360, scale: 0.7 };
+    if (!nextTree || !nextTree.id) throw new Error('Dados do mapa invalidos.');
+    tree = nextTree;
+    view = nextView;
+    hideNodeMenu();
+    render();
+  }
+
+  function renderWorkspaceOptions() {
+    workspaceDropdown.innerHTML = '';
+    if (!workspaceItems.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Nenhum workspace';
+      workspaceDropdown.appendChild(option);
+      currentWorkspaceId = '';
+      renderMapList([]);
+      return;
+    }
+
+    workspaceItems.forEach(workspace => {
+      const option = document.createElement('option');
+      option.value = workspace.id;
+      option.textContent = workspace.name;
+      workspaceDropdown.appendChild(option);
+    });
+
+    if (!workspaceItems.some(workspace => workspace.id === currentWorkspaceId)) {
+      currentWorkspaceId = workspaceItems[0].id;
+    }
+    workspaceDropdown.value = currentWorkspaceId;
+  }
+
+  function renderMapList(maps) {
+    mapList.innerHTML = '';
+    if (!maps.length) {
+      const item = document.createElement('li');
+      item.className = 'muted';
+      item.textContent = 'Nenhum mapa salvo neste workspace.';
+      mapList.appendChild(item);
+      return;
+    }
+
+    maps.forEach(map => {
+      const item = document.createElement('li');
+      item.className = map.id === currentMapId ? 'active' : '';
+      const title = document.createElement('span');
+      title.textContent = map.title || 'Mapa sem titulo';
+      const meta = document.createElement('small');
+      meta.textContent = map.updated_at ? new Date(map.updated_at).toLocaleDateString('pt-BR') : '';
+      item.appendChild(title);
+      item.appendChild(meta);
+      item.addEventListener('click', () => openMindmap(map.id));
+      mapList.appendChild(item);
+    });
+  }
+
+  async function loadWorkspaces() {
+    if (!supabaseClient || !supabaseSession) {
+      workspaceItems = LOCAL_WORKSPACES;
+      currentWorkspaceId = currentWorkspaceId || workspaceItems[0].id;
+      renderWorkspaceOptions();
+      loadMindmapsForWorkspace(currentWorkspaceId);
+      setAuthStatus(supabaseClient ? 'Entre com seu email para salvar na nuvem. Agora voce esta em modo local.' : 'Supabase nao configurado. Usando modo local neste navegador.');
+      return;
+    }
+
+    setAuthStatus('Conectado: ' + supabaseSession.user.email);
+    const { data, error } = await supabaseClient
+      .from('workspace_members')
+      .select('workspace_id, role, workspaces(id, name)')
+      .eq('user_id', supabaseSession.user.id)
+      .order('role', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao listar workspaces:', error);
+      workspaceItems = [];
+      renderWorkspaceOptions();
+      setAuthStatus('Erro ao carregar workspaces. Verifique as politicas RLS.');
+      return;
+    }
+
+    if ((!data || data.length === 0) && !attemptedWorkspaceBootstrap) {
+      attemptedWorkspaceBootstrap = true;
+      const { error: createError } = await supabaseClient
+        .from('workspaces')
+        .insert([
+          { name: 'Empresa Cliente', created_by: supabaseSession.user.id },
+          { name: 'By People', created_by: supabaseSession.user.id }
+        ]);
+      if (!createError) {
+        await loadWorkspaces();
+        return;
+      }
+      console.error('Erro ao criar workspaces iniciais:', createError);
+    }
+
+    workspaceItems = (data || []).map(item => ({
+      id: item.workspace_id,
+      name: item.workspaces?.name || 'Workspace',
+      role: item.role
+    }));
+
+    renderWorkspaceOptions();
+    if (currentWorkspaceId) await loadMindmapsForWorkspace(currentWorkspaceId);
+  }
+
+  async function loadMindmapsForWorkspace(workspaceId) {
+    if (!workspaceId) {
+      renderMapList([]);
+      return;
+    }
+
+    mapList.innerHTML = '<li class="muted">Carregando mapas...</li>';
+
+    if (!supabaseClient || !supabaseSession || workspaceId.endsWith('-local')) {
+      renderMapList(readLocalMaps(workspaceId));
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from('mindmaps')
+      .select('id, title, updated_at')
+      .eq('workspace_id', workspaceId)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar mapas:', error);
+      mapList.innerHTML = '<li class="muted">Erro ao carregar mapas.</li>';
+      return;
+    }
+
+    renderMapList(data || []);
+  }
+
+  async function openMindmap(mapId) {
+    if (!currentWorkspaceId || !mapId) return;
+
+    try {
+      if (!supabaseClient || !supabaseSession || currentWorkspaceId.endsWith('-local')) {
+        const map = readLocalMaps(currentWorkspaceId).find(item => item.id === mapId);
+        if (!map) throw new Error('Mapa local nao encontrado.');
+        currentMapId = map.id;
+        currentMapTitle = map.title;
+        mapTitleInput.value = currentMapTitle;
+        applyMapPayload(map.map_data);
+        renderMapList(readLocalMaps(currentWorkspaceId));
+        closeSidebar();
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('mindmaps')
+        .select('id, title, map_data')
+        .eq('id', mapId)
+        .single();
+
+      if (error) throw error;
+      currentMapId = data.id;
+      currentMapTitle = data.title;
+      mapTitleInput.value = currentMapTitle;
+      applyMapPayload(data.map_data);
+      await loadMindmapsForWorkspace(currentWorkspaceId);
+      closeSidebar();
+    } catch (err) {
+      alert('Nao foi possivel abrir o mapa:\n\n' + err.message);
+    }
+  }
+
+  async function saveCurrentMindmap() {
+    if (!currentWorkspaceId) {
+      alert('Selecione um workspace primeiro.');
+      return;
+    }
+
+    const title = mapTitleInput.value.trim() || 'Mapa sem titulo';
+    const payload = getMapPayload();
+    showStatus('Salvando mapa...');
+
+    try {
+      if (!supabaseClient || !supabaseSession || currentWorkspaceId.endsWith('-local')) {
+        const maps = readLocalMaps(currentWorkspaceId);
+        const now = new Date().toISOString();
+        if (currentMapId) {
+          const index = maps.findIndex(map => map.id === currentMapId);
+          if (index >= 0) {
+            maps[index] = { ...maps[index], title, map_data: payload, updated_at: now };
+          } else {
+            maps.unshift({ id: currentMapId, workspace_id: currentWorkspaceId, title, map_data: payload, updated_at: now });
+          }
+        } else {
+          currentMapId = 'local-' + Date.now();
+          maps.unshift({ id: currentMapId, workspace_id: currentWorkspaceId, title, map_data: payload, updated_at: now });
+        }
+        currentMapTitle = title;
+        writeLocalMaps(currentWorkspaceId, maps);
+        renderMapList(maps);
+        showStatus('Mapa salvo localmente.', 2600);
+        return;
+      }
+
+      if (currentMapId) {
+        const { error } = await supabaseClient
+          .from('mindmaps')
+          .update({ title, map_data: payload })
+          .eq('id', currentMapId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabaseClient
+          .from('mindmaps')
+          .insert({ workspace_id: currentWorkspaceId, title, map_data: payload })
+          .select('id')
+          .single();
+        if (error) throw error;
+        currentMapId = data.id;
+      }
+
+      currentMapTitle = title;
+      await loadMindmapsForWorkspace(currentWorkspaceId);
+      showStatus('Mapa salvo no Supabase.', 2600);
+    } catch (err) {
+      hideStatus();
+      alert('Nao foi possivel salvar:\n\n' + err.message);
+    }
+  }
+
+  function createNewMindmap() {
+    currentMapId = null;
+    currentMapTitle = 'Novo mapa';
+    mapTitleInput.value = currentMapTitle;
+    tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
+    view = { tx: 340, ty: 360, scale: 0.7 };
+    hideNodeMenu();
+    render();
+    showStatus('Novo mapa criado. Clique em Salvar para guardar.', 2600);
+  }
+
+  async function signInWithEmail() {
+    if (!supabaseClient) {
+      alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify para ativar login.');
+      return;
+    }
+    const email = authEmail.value.trim();
+    if (!email) {
+      alert('Digite seu email.');
+      return;
+    }
+    const { error } = await supabaseClient.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin }
+    });
+    if (error) {
+      alert('Erro ao enviar login:\n\n' + error.message);
+      return;
+    }
+    setAuthStatus('Enviamos um link de acesso para ' + email + '.');
+  }
+
+  async function signOut() {
+    if (!supabaseClient) return;
+    await supabaseClient.auth.signOut();
+    supabaseSession = null;
+    currentWorkspaceId = '';
+    attemptedWorkspaceBootstrap = false;
+    await loadWorkspaces();
+  }
+
+  async function initSupabase() {
+    const config = await loadPublicConfig();
+    if (config.supabaseUrl && config.supabaseAnonKey && window.supabase) {
+      supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+      const { data } = await supabaseClient.auth.getSession();
+      supabaseSession = data.session;
+      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+        supabaseSession = session;
+        await loadWorkspaces();
+      });
+    }
+    await loadWorkspaces();
   }
 
   function nodeColor(node, key) {
@@ -1102,6 +1691,22 @@
   document.getElementById('btn-fit').addEventListener('click', resetView);
   document.getElementById('btn-fit-top').addEventListener('click', resetView);
 
+  document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+  document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
+  sidebarBackdrop.addEventListener('click', closeSidebar);
+  workspaceDropdown.addEventListener('change', async (e) => {
+    currentWorkspaceId = e.target.value;
+    currentMapId = null;
+    await loadMindmapsForWorkspace(currentWorkspaceId);
+  });
+  document.getElementById('btn-new-map').addEventListener('click', createNewMindmap);
+  document.getElementById('btn-save-map').addEventListener('click', saveCurrentMindmap);
+  loginBtn.addEventListener('click', signInWithEmail);
+  logoutBtn.addEventListener('click', signOut);
+  mapTitleInput.addEventListener('input', () => {
+    currentMapTitle = mapTitleInput.value.trim() || 'Mapa sem titulo';
+  });
+
   function setPresentationMode(active) {
     document.body.classList.toggle('presentation-mode', active);
     hideNodeMenu();
@@ -1210,6 +1815,9 @@
       const nextTree = normalizeAINode(aiJson, 0);
       layoutTree(nextTree, 0, 0);
       tree = nextTree;
+      currentMapId = null;
+      currentMapTitle = nextTree.text || 'Mapa gerado';
+      mapTitleInput.value = currentMapTitle;
       view = { tx: 260, ty: 360, scale: 0.72 };
       render();
       showStatus('Mapa gerado automaticamente.', 3500);
@@ -1232,6 +1840,9 @@
   document.getElementById('btn-reset').addEventListener('click', () => {
     if (confirm('Restaurar o mind map ao estado original? Todas as alteraÃ§Ãµes serÃ£o perdidas.')) {
       tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
+      currentMapId = null;
+      currentMapTitle = 'Mapa padrao';
+      mapTitleInput.value = currentMapTitle;
       render();
     }
   });
@@ -1268,6 +1879,9 @@
     reader.onload = (ev) => {
       try {
         tree = JSON.parse(ev.target.result);
+        currentMapId = null;
+        currentMapTitle = tree.text || 'Mapa importado';
+        mapTitleInput.value = currentMapTitle;
         render();
       } catch(err) { alert('JSON invÃ¡lido: ' + err.message); }
     };
@@ -1276,8 +1890,10 @@
 
   window.addEventListener('resize', drawEdges);
 
+  mapTitleInput.value = currentMapTitle;
   render();
   refreshIcons();
+  initSupabase();
 })();
 </script>
 </div>

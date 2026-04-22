@@ -143,6 +143,13 @@ async function generateMindmap(req, res, corsHeaders) {
   sendJson(res, 200, responseText, corsHeaders);
 }
 
+function getPublicConfig() {
+  return {
+    supabaseUrl: process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY || ''
+  };
+}
+
 function serveStatic(req, res, corsHeaders) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const requestPath = url.pathname === '/' ? `/${INDEX_FILE}` : url.pathname;
@@ -190,6 +197,11 @@ const server = createServer(async (req, res) => {
         service: 'mindmap-generator',
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'
       }, corsHeaders);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/config') {
+      sendJson(res, 200, getPublicConfig(), corsHeaders);
       return;
     }
 

@@ -52,6 +52,15 @@ Variável obrigatória:
 ANTHROPIC_API_KEY=sk-ant-api03-sua-chave-aqui
 ```
 
+Variáveis para salvar mapas no Supabase:
+
+```txt
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_ANON_KEY=sua-chave-anon-publica
+```
+
+Antes de ativar essas variáveis, rode o SQL em `supabase/schema.sql` no SQL Editor do Supabase.
+
 Variáveis opcionais:
 
 ```txt
@@ -77,6 +86,7 @@ https://seu-dominio.com/api/generate-mindmap
 
 - `GET /`: abre o editor.
 - `GET /health`: verifica se o backend está online.
+- `GET /api/config`: entrega as chaves públicas do Supabase para o frontend.
 - `POST /api/generate-mindmap`: gera mind map.
 - `POST /generate-mindmap`: alias do endpoint acima.
 
