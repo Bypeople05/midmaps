@@ -137,6 +137,12 @@
       display: grid;
       gap: 8px;
     }
+    .sidebar-inline-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
     .sidebar label {
       color: var(--text-muted);
       font-size: 11px;
@@ -169,6 +175,29 @@
     }
     .sidebar-actions .full {
       grid-column: 1 / -1;
+    }
+    .text-btn {
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      color: var(--brand-blue);
+      padding: 0;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .text-btn:hover {
+      background: transparent;
+      box-shadow: none;
+      transform: none;
+      color: var(--brand-teal);
+    }
+    .create-client-panel {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px dashed rgba(123,194,197,0.65);
+      border-radius: 14px;
+      background: rgba(237,246,248,0.72);
     }
     .map-list {
       list-style: none;
@@ -657,14 +686,27 @@
   </div>
 
   <div class="sidebar-section">
-    <label for="workspace-dropdown">Workspace</label>
+    <div class="sidebar-inline-header">
+      <label for="workspace-dropdown">Workspace</label>
+      <button id="btn-show-create-client" class="text-btn" type="button">Novo cliente</button>
+    </div>
     <select id="workspace-dropdown">
       <option value="">Carregando...</option>
     </select>
+    <div id="create-client-panel" class="create-client-panel is-hidden">
+      <input id="create-client-input" type="text" placeholder="Nome da empresa cliente">
+      <div class="sidebar-actions">
+        <button id="btn-create-client" class="primary full" type="button">
+          <i data-lucide="building-2"></i>
+          <span>Criar Novo Cliente</span>
+        </button>
+        <button id="btn-cancel-create-client" class="full" type="button">Cancelar</button>
+      </div>
+    </div>
   </div>
 
   <div class="sidebar-section">
-    <label for="map-title-input">Titulo do mapa atual</label>
+    <label for="map-title-input">Titulo do mapa</label>
     <input id="map-title-input" type="text" value="Mapa sem titulo">
   </div>
 
@@ -962,6 +1004,11 @@
   const sidebar = document.getElementById('sidebar');
   const sidebarBackdrop = document.getElementById('sidebar-backdrop');
   const workspaceDropdown = document.getElementById('workspace-dropdown');
+  const createClientPanel = document.getElementById('create-client-panel');
+  const createClientInput = document.getElementById('create-client-input');
+  const showCreateClientBtn = document.getElementById('btn-show-create-client');
+  const createClientBtn = document.getElementById('btn-create-client');
+  const cancelCreateClientBtn = document.getElementById('btn-cancel-create-client');
   const mapList = document.getElementById('map-list');
   const mapTitleInput = document.getElementById('map-title-input');
   const authStatus = document.getElementById('auth-status');
@@ -1068,12 +1115,7 @@
   let currentWorkspaceId = '';
   let currentMapId = null;
   let currentMapTitle = 'Mapa sem titulo';
-  let attemptedWorkspaceBootstrap = false;
   let currentUserRole = 'admin';
-  const LOCAL_WORKSPACES = [
-    { id: 'empresa-cliente-local', name: 'Empresa Cliente' },
-    { id: 'by-people-local', name: 'By People' }
-  ];
 
   function showStatus(message, duration) {
     statusBadge.textContent = message;
@@ -1091,7 +1133,20 @@
   }
 
   function isCloudMode() {
-    return Boolean(supabaseClient && supabaseSession && currentWorkspaceId && !currentWorkspaceId.endsWith('-local'));
+    return Boolean(supabaseClient && supabaseSession && currentWorkspaceId);
+  }
+
+  function showCreateClientPanel() {
+    if (currentUserRole !== 'admin') return;
+    createClientPanel.classList.remove('is-hidden');
+    showCreateClientBtn.classList.add('is-hidden');
+    setTimeout(() => createClientInput.focus(), 40);
+  }
+
+  function hideCreateClientPanel() {
+    createClientPanel.classList.add('is-hidden');
+    showCreateClientBtn.classList.remove('is-hidden');
+    createClientInput.value = '';
   }
 
   function openSidebar() {
@@ -1148,7 +1203,7 @@
     const hasSupabase = Boolean(supabaseClient);
     const isLogged = Boolean(supabaseSession);
     const inviteBtn = document.getElementById('btn-invite-member');
-    const isCloudWorkspace = Boolean(currentWorkspaceId) && !currentWorkspaceId.endsWith('-local');
+    const isCloudWorkspace = Boolean(currentWorkspaceId);
     authEmail.classList.toggle('is-hidden', isLogged || !hasSupabase);
     loginBtn.disabled = !hasSupabase || isLogged;
     logoutBtn.disabled = !hasSupabase || !isLogged;
@@ -1159,7 +1214,11 @@
     inviteBtn.querySelector('span').textContent = isLogged ? 'Enviar Convite' : 'Entrar para convidar';
     loginBtn.querySelector('span').textContent = isLogged ? 'Logado' : 'Entrar';
     logoutBtn.querySelector('span').textContent = isLogged ? 'Sair' : 'Sair';
-    saveClientBtn.disabled = !currentWorkspaceId;
+    const canSave = Boolean(hasSupabase && isLogged && currentWorkspaceId);
+    document.getElementById('btn-save-map').disabled = !canSave;
+    saveClientBtn.disabled = !canSave;
+    createClientBtn.disabled = !(hasSupabase && isLogged && currentUserRole === 'admin');
+    showCreateClientBtn.disabled = !(hasSupabase && isLogged && currentUserRole === 'admin');
     applyRoleInterface();
   }
 
@@ -1191,6 +1250,12 @@
       : 'Organize ideias, projetos e processos com visual personalizavel.';
 
     mapTitleInput.disabled = clientView;
+    if (currentUserRole !== 'admin') {
+      createClientPanel.classList.add('is-hidden');
+      showCreateClientBtn.classList.add('is-hidden');
+    } else if (createClientPanel.classList.contains('is-hidden')) {
+      showCreateClientBtn.classList.remove('is-hidden');
+    }
     if (clientView) {
       mapTitleInput.value = workspaceName;
     }
@@ -1244,22 +1309,6 @@
     }
   }
 
-  function localMapsKey(workspaceId) {
-    return 'by_people_local_mindmaps_' + workspaceId;
-  }
-
-  function readLocalMaps(workspaceId) {
-    try {
-      return JSON.parse(localStorage.getItem(localMapsKey(workspaceId)) || '[]');
-    } catch (err) {
-      return [];
-    }
-  }
-
-  function writeLocalMaps(workspaceId, maps) {
-    try { localStorage.setItem(localMapsKey(workspaceId), JSON.stringify(maps)); } catch (err) {}
-  }
-
   function getMapPayload() {
     return {
       version: 1,
@@ -1267,6 +1316,21 @@
       view,
       savedAt: new Date().toISOString()
     };
+  }
+
+  function resetToBlankMap(rootText) {
+    tree = {
+      id: 'root',
+      text: rootText || 'Mapa sem titulo',
+      level: 0,
+      x: 0,
+      y: 0,
+      collapsed: false,
+      children: []
+    };
+    view = { tx: 340, ty: 360, scale: 0.7 };
+    hideNodeMenu();
+    render();
   }
 
   function applyMapPayload(mapData) {
@@ -1287,6 +1351,9 @@
       option.textContent = 'Nenhum workspace';
       workspaceDropdown.appendChild(option);
       currentWorkspaceId = '';
+      currentMapId = null;
+      currentMapTitle = 'Mapa sem titulo';
+      mapTitleInput.value = currentMapTitle;
       renderMapList([]);
       updateAuthUi();
       return;
@@ -1304,7 +1371,7 @@
     }
     workspaceDropdown.value = currentWorkspaceId;
     if (!currentMapId) {
-      currentMapTitle = getCurrentWorkspaceName() || currentMapTitle;
+      currentMapTitle = isClientPortalView() ? (getCurrentWorkspaceName() || 'Mapa sem titulo') : (currentMapTitle || 'Mapa sem titulo');
       mapTitleInput.value = currentMapTitle;
     }
     updateAuthUi();
@@ -1337,11 +1404,11 @@
   async function loadWorkspaces() {
     if (!supabaseClient || !supabaseSession) {
       currentUserRole = 'admin';
-      workspaceItems = LOCAL_WORKSPACES;
-      currentWorkspaceId = currentWorkspaceId || workspaceItems[0].id;
+      workspaceItems = [];
+      currentWorkspaceId = '';
+      currentMapId = null;
       renderWorkspaceOptions();
-      loadMindmapsForWorkspace(currentWorkspaceId);
-      setAuthStatus(supabaseClient ? 'Entre com seu email para salvar na nuvem. Agora voce esta em modo local.' : 'Supabase nao configurado. Usando modo local neste navegador.');
+      setAuthStatus(supabaseClient ? 'Entre com seu email para carregar clientes e mapas do Supabase.' : 'Supabase nao configurado. Configure as chaves para salvar clientes e mapas.');
       updateAuthUi();
       return;
     }
@@ -1383,22 +1450,17 @@
         role: 'admin'
       }));
 
-      if ((!data || data.length === 0) && !attemptedWorkspaceBootstrap) {
-        attemptedWorkspaceBootstrap = true;
-        const { error: createError } = await supabaseClient
-          .from('workspaces')
-          .insert([
-            { name: 'Empresa Cliente', created_by: supabaseSession.user.id },
-            { name: 'By People', created_by: supabaseSession.user.id }
-          ]);
-        if (!createError) {
-          await loadWorkspaces();
-          return;
-        }
-        console.error('Erro ao criar workspaces iniciais:', createError);
-      }
-
       renderWorkspaceOptions();
+      if (!workspaceItems.length) {
+        currentWorkspaceId = '';
+        currentMapId = null;
+        currentMapTitle = 'Mapa sem titulo';
+        mapTitleInput.value = currentMapTitle;
+        renderMapList([]);
+        setAuthStatus('Nenhum cliente cadastrado. Crie o primeiro na sidebar.');
+        updateAuthUi();
+        return;
+      }
       if (currentWorkspaceId) await loadMindmapsForWorkspace(currentWorkspaceId);
       return;
     }
@@ -1417,21 +1479,6 @@
       return;
     }
 
-    if ((!data || data.length === 0) && !attemptedWorkspaceBootstrap) {
-      attemptedWorkspaceBootstrap = true;
-      const { error: createError } = await supabaseClient
-        .from('workspaces')
-        .insert([
-          { name: 'Empresa Cliente', created_by: supabaseSession.user.id },
-          { name: 'By People', created_by: supabaseSession.user.id }
-        ]);
-      if (!createError) {
-        await loadWorkspaces();
-        return;
-      }
-      console.error('Erro ao criar workspaces iniciais:', createError);
-    }
-
     workspaceItems = (data || []).map(item => ({
       id: item.workspace_id,
       name: item.workspaces?.name || 'Workspace',
@@ -1439,7 +1486,79 @@
     }));
 
     renderWorkspaceOptions();
+    if (!workspaceItems.length) {
+      currentWorkspaceId = '';
+      currentMapId = null;
+      currentMapTitle = 'Mapa sem titulo';
+      mapTitleInput.value = currentMapTitle;
+      renderMapList([]);
+      setAuthStatus('Sua conta ainda nao tem acesso a nenhum cliente.');
+      updateAuthUi();
+      return;
+    }
     if (currentWorkspaceId) await loadMindmapsForWorkspace(currentWorkspaceId);
+  }
+
+  async function createWorkspaceWithMember() {
+    if (!supabaseClient || !supabaseSession) {
+      openAuthModal(authEmail.value.trim());
+      return;
+    }
+    if (currentUserRole !== 'admin') {
+      alert('Somente administradores podem criar clientes.');
+      return;
+    }
+
+    const workspaceName = createClientInput.value.trim();
+    if (!workspaceName) {
+      alert('Digite o nome da empresa cliente.');
+      return;
+    }
+
+    createClientBtn.disabled = true;
+    showStatus('Criando cliente...');
+    try {
+      let data = null;
+      let error = null;
+
+      const rpcResult = await supabaseClient.rpc('create_workspace_with_member', {
+        workspace_name: workspaceName
+      });
+      data = rpcResult.data;
+      error = rpcResult.error;
+
+      if (error && /create_workspace_with_member/i.test(error.message || '')) {
+        const fallback = await supabaseClient
+          .from('workspaces')
+          .insert({ name: workspaceName, created_by: supabaseSession.user.id })
+          .select('id, name, created_at')
+          .single();
+        data = fallback.data;
+        error = fallback.error;
+      }
+
+      if (error) throw error;
+
+      const createdWorkspace = Array.isArray(data) ? data[0] : data;
+      if (!createdWorkspace || !createdWorkspace.id) {
+        throw new Error('Workspace criado sem retorno valido.');
+      }
+
+      await loadWorkspaces();
+      currentWorkspaceId = createdWorkspace.id;
+      currentMapId = null;
+      currentMapTitle = 'Mapa sem titulo';
+      mapTitleInput.value = currentMapTitle;
+      renderWorkspaceOptions();
+      await loadMindmapsForWorkspace(currentWorkspaceId);
+      hideCreateClientPanel();
+      showStatus('Cliente criado com sucesso.', 2600);
+    } catch (err) {
+      hideStatus();
+      alert('Nao foi possivel criar o cliente:\n\n' + err.message + '\n\nSe a funcao RPC ainda nao existir, rode o SQL atualizado no Supabase.');
+    } finally {
+      createClientBtn.disabled = !(supabaseClient && supabaseSession && currentUserRole === 'admin');
+    }
   }
 
   async function loadMindmapsForWorkspace(workspaceId) {
@@ -1450,8 +1569,8 @@
 
     mapList.innerHTML = '<li class="muted">Carregando mapas...</li>';
 
-    if (!supabaseClient || !supabaseSession || workspaceId.endsWith('-local')) {
-      renderMapList(readLocalMaps(workspaceId));
+    if (!supabaseClient || !supabaseSession) {
+      renderMapList([]);
       return;
     }
 
@@ -1480,19 +1599,13 @@
         currentMapId = null;
         currentMapTitle = getCurrentWorkspaceName() || 'Mapa sem titulo';
         mapTitleInput.value = currentMapTitle;
-        tree = {
-          id: 'root',
-          text: currentMapTitle,
-          level: 0,
-          x: 0,
-          y: 0,
-          collapsed: false,
-          children: []
-        };
-        view = { tx: 340, ty: 360, scale: 0.7 };
-        hideNodeMenu();
-        render();
+        resetToBlankMap(currentMapTitle);
       }
+    } else if (!(data || []).length) {
+      currentMapId = null;
+      currentMapTitle = 'Mapa sem titulo';
+      mapTitleInput.value = currentMapTitle;
+      resetToBlankMap(getCurrentWorkspaceName() || 'Novo mapa');
     }
   }
 
@@ -1500,16 +1613,8 @@
     if (!currentWorkspaceId || !mapId) return;
 
     try {
-      if (!supabaseClient || !supabaseSession || currentWorkspaceId.endsWith('-local')) {
-        const map = readLocalMaps(currentWorkspaceId).find(item => item.id === mapId);
-        if (!map) throw new Error('Mapa local nao encontrado.');
-        currentMapId = map.id;
-        currentMapTitle = map.title;
-        mapTitleInput.value = currentMapTitle;
-        applyMapPayload(map.map_data);
-        renderMapList(readLocalMaps(currentWorkspaceId));
-        closeSidebar();
-        return;
+      if (!supabaseClient || !supabaseSession) {
+        throw new Error('Entre com sua conta para abrir mapas salvos.');
       }
 
       const { data, error } = await supabaseClient
@@ -1536,33 +1641,18 @@
       return;
     }
 
-    const title = getCurrentWorkspaceName() || mapTitleInput.value.trim() || 'Mapa sem titulo';
+    if (!supabaseClient || !supabaseSession) {
+      openAuthModal(authEmail.value.trim());
+      alert('Entre com sua conta para salvar no Supabase.');
+      return;
+    }
+
+    const title = mapTitleInput.value.trim() || currentMapTitle || 'Mapa sem titulo';
     mapTitleInput.value = title;
     const payload = getMapPayload();
     showStatus('Salvando mapa...');
 
     try {
-      if (!supabaseClient || !supabaseSession || currentWorkspaceId.endsWith('-local')) {
-        const maps = readLocalMaps(currentWorkspaceId);
-        const now = new Date().toISOString();
-        if (currentMapId) {
-          const index = maps.findIndex(map => map.id === currentMapId);
-          if (index >= 0) {
-            maps[index] = { ...maps[index], title, map_data: payload, updated_at: now };
-          } else {
-            maps.unshift({ id: currentMapId, workspace_id: currentWorkspaceId, title, map_data: payload, updated_at: now });
-          }
-        } else {
-          currentMapId = 'local-' + Date.now();
-          maps.unshift({ id: currentMapId, workspace_id: currentWorkspaceId, title, map_data: payload, updated_at: now });
-        }
-        currentMapTitle = title;
-        writeLocalMaps(currentWorkspaceId, maps);
-        renderMapList(maps);
-        showStatus('Mapa salvo localmente.', 2600);
-        return;
-      }
-
       if (currentMapId) {
         const { error } = await supabaseClient
           .from('mindmaps')
@@ -1590,12 +1680,9 @@
 
   function createNewMindmap() {
     currentMapId = null;
-    currentMapTitle = getCurrentWorkspaceName() || 'Novo mapa';
+    currentMapTitle = isClientPortalView() ? (getCurrentWorkspaceName() || 'Mapa sem titulo') : 'Mapa sem titulo';
     mapTitleInput.value = currentMapTitle;
-    tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
-    view = { tx: 340, ty: 360, scale: 0.7 };
-    hideNodeMenu();
-    render();
+    resetToBlankMap(isClientPortalView() ? currentMapTitle : 'Novo mapa');
     showStatus('Novo mapa criado. Clique em Salvar para guardar.', 2600);
   }
 
@@ -1641,8 +1728,10 @@
     currentUserRole = 'admin';
     currentWorkspaceId = '';
     currentMapId = null;
-    attemptedWorkspaceBootstrap = false;
-    setAuthStatus('Voce saiu da conta. Modo local ativo.');
+    currentMapTitle = 'Mapa sem titulo';
+    mapTitleInput.value = currentMapTitle;
+    setAuthStatus('Voce saiu da conta. Entre novamente para carregar clientes e mapas.');
+    hideCreateClientPanel();
     updateAuthUi();
     await loadWorkspaces();
   }
@@ -1653,7 +1742,7 @@
       showStatus('Entre com sua conta para enviar convites.', 2600);
       return;
     }
-    if (!currentWorkspaceId || currentWorkspaceId.endsWith('-local')) {
+    if (!currentWorkspaceId) {
       alert('Selecione um workspace salvo no Supabase antes de convidar.');
       return;
     }
@@ -2089,10 +2178,16 @@
   document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
   document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
   sidebarBackdrop.addEventListener('click', closeSidebar);
+  showCreateClientBtn.addEventListener('click', showCreateClientPanel);
+  cancelCreateClientBtn.addEventListener('click', hideCreateClientPanel);
+  createClientBtn.addEventListener('click', createWorkspaceWithMember);
+  createClientInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') createWorkspaceWithMember();
+  });
   workspaceDropdown.addEventListener('change', async (e) => {
     currentWorkspaceId = e.target.value;
     currentMapId = null;
-    currentMapTitle = getCurrentWorkspaceName() || 'Mapa sem titulo';
+    currentMapTitle = isClientPortalView() ? (getCurrentWorkspaceName() || 'Mapa sem titulo') : 'Mapa sem titulo';
     mapTitleInput.value = currentMapTitle;
     updateAuthUi();
     await loadMindmapsForWorkspace(currentWorkspaceId);

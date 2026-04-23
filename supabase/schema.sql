@@ -163,6 +163,44 @@ begin
 end;
 $$;
 
+create or replace function public.create_workspace_with_member(workspace_name text)
+returns table (
+  id uuid,
+  name text,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_workspace public.workspaces;
+begin
+  if auth.uid() is null then
+    raise exception 'Login obrigatorio para criar cliente.';
+  end if;
+
+  if not public.is_app_admin() then
+    raise exception 'Apenas administradores podem criar clientes.';
+  end if;
+
+  if trim(coalesce(workspace_name, '')) = '' then
+    raise exception 'Nome do cliente e obrigatorio.';
+  end if;
+
+  insert into public.workspaces (name, created_by)
+  values (trim(workspace_name), auth.uid())
+  returning * into new_workspace;
+
+  insert into public.workspace_members (workspace_id, user_id, role)
+  values (new_workspace.id, auth.uid(), 'owner')
+  on conflict (workspace_id, user_id) do nothing;
+
+  return query
+  select new_workspace.id, new_workspace.name, new_workspace.created_at;
+end;
+$$;
+
 drop trigger if exists workspaces_add_owner on public.workspaces;
 create trigger workspaces_add_owner
 after insert on public.workspaces
@@ -204,6 +242,7 @@ end;
 $$;
 
 grant execute on function public.accept_workspace_invites() to authenticated;
+grant execute on function public.create_workspace_with_member(text) to authenticated;
 
 alter table public.workspaces enable row level security;
 alter table public.profiles enable row level security;
