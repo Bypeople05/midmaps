@@ -634,19 +634,22 @@
     body.logged-out .sidebar,
     body.logged-out .sidebar-toggle,
     body.logged-out .app-shell {
-      filter: blur(10px);
-      opacity: 0.16;
+      opacity: 0;
       pointer-events: none;
       user-select: none;
     }
     body.logged-out .modal-overlay#auth-modal {
       display: flex;
       z-index: 1200;
-      background: rgba(12, 28, 38, 0.62);
-      backdrop-filter: blur(12px);
+      background:
+        radial-gradient(circle at top left, rgba(104,188,192,0.22), transparent 34%),
+        linear-gradient(180deg, #f9fcfd 0%, #eef4f7 100%);
+      backdrop-filter: none;
     }
     body.logged-out .modal-overlay#auth-modal .modal {
       width: min(520px, calc(100% - 28px));
+      padding: 28px;
+      box-shadow: 0 30px 80px rgba(21, 58, 74, 0.18);
     }
     body.client-view .sidebar,
     body.client-view .sidebar-toggle,
