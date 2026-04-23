@@ -242,6 +242,13 @@
       box-shadow: 0 18px 45px rgba(32, 87, 106, 0.10);
       backdrop-filter: blur(12px);
     }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
     .brand {
       display: flex;
       align-items: center;
@@ -272,6 +279,7 @@
       font-size: 13px;
       color: var(--text-muted);
     }
+    .client-only { display: none !important; }
     .toolbar {
       display: flex;
       gap: 8px;
@@ -559,6 +567,75 @@
     body.presentation-mode .presentation-exit {
       display: inline-flex;
     }
+    body.client-view .sidebar,
+    body.client-view .sidebar-toggle,
+    body.client-view .sidebar-backdrop,
+    body.client-view .hint-panel,
+    body.client-view .toolbar {
+      display: none !important;
+    }
+    body.client-view {
+      padding: 16px;
+      background:
+        radial-gradient(circle at top left, rgba(104,188,192,0.15), transparent 32%),
+        linear-gradient(180deg, #ffffff 0%, #f4f9fb 46%, #eef5f8 100%);
+    }
+    body.client-view .app-shell {
+      max-width: none;
+      padding-left: 0;
+    }
+    body.client-view .topbar {
+      position: sticky;
+      top: 16px;
+      z-index: 500;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.94);
+      border-color: rgba(216,228,236,0.96);
+      box-shadow: 0 22px 48px rgba(32, 87, 106, 0.12);
+    }
+    body.client-view .brand {
+      width: 100%;
+      gap: 0;
+    }
+    body.client-view .brand-logo {
+      display: none;
+    }
+    body.client-view .brand-copy {
+      width: 100%;
+      padding: 16px 18px;
+      border-left: 0;
+      border: 1px solid rgba(104,188,192,0.26);
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(47,143,200,0.10), rgba(104,188,192,0.16));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+    body.client-view .brand-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #123045;
+    }
+    body.client-view .brand-subtitle {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #567086;
+    }
+    body.client-view .topbar-actions .client-only {
+      display: inline-flex !important;
+    }
+    body.client-view .topbar-actions #btn-fit-top {
+      display: none !important;
+    }
+    body.client-view #mindmap-container {
+      height: calc(100vh - 132px);
+      min-height: 620px;
+    }
+    body.client-view #hint {
+      display: none;
+    }
+    body.client-view .node-menu {
+      box-shadow: 0 20px 42px rgba(24, 68, 85, 0.16);
+    }
   </style>
 </head>
 <body>
@@ -646,14 +723,20 @@
   <div class="brand">
     <img class="brand-logo" src="assets/by-people-logo.png" alt="By People">
     <div class="brand-copy">
-      <h1 class="brand-title">Mind Map Editor</h1>
-      <p class="brand-subtitle">Organize ideias, projetos e processos com visual personalizavel.</p>
+      <h1 id="brand-title" class="brand-title">Mind Map Editor</h1>
+      <p id="brand-subtitle" class="brand-subtitle">Organize ideias, projetos e processos com visual personalizavel.</p>
     </div>
   </div>
-  <button id="btn-fit-top" class="primary" type="button">
-    <i data-lucide="scan"></i>
-    <span>Centralizar</span>
-  </button>
+  <div class="topbar-actions">
+    <button id="btn-save-client" class="primary client-only" type="button">
+      <i data-lucide="cloud"></i>
+      <span>Salvar</span>
+    </button>
+    <button id="btn-fit-top" class="primary" type="button">
+      <i data-lucide="scan"></i>
+      <span>Centralizar</span>
+    </button>
+  </div>
 </header>
 
 <div class="toolbar">
@@ -884,8 +967,11 @@
   const authStatus = document.getElementById('auth-status');
   const authEmail = document.getElementById('auth-email');
   const inviteEmailInput = document.getElementById('invite-email-input');
+  const brandTitleEl = document.getElementById('brand-title');
+  const brandSubtitleEl = document.getElementById('brand-subtitle');
   const loginBtn = document.getElementById('btn-login');
   const logoutBtn = document.getElementById('btn-logout');
+  const saveClientBtn = document.getElementById('btn-save-client');
 
   const DEFAULT_TREE = {
     id: 'root', text: 'Central Inteligente\nAdministradora de CondomÃ­nios', level: 0,
@@ -983,7 +1069,7 @@
   let currentMapId = null;
   let currentMapTitle = 'Mapa sem titulo';
   let attemptedWorkspaceBootstrap = false;
-  let currentUserRole = 'client';
+  let currentUserRole = 'admin';
   const LOCAL_WORKSPACES = [
     { id: 'empresa-cliente-local', name: 'Empresa Cliente' },
     { id: 'by-people-local', name: 'By People' }
@@ -1009,6 +1095,7 @@
   }
 
   function openSidebar() {
+    if (isClientPortalView()) return;
     sidebar.classList.remove('collapsed');
     sidebarBackdrop.classList.add('show');
   }
@@ -1019,6 +1106,7 @@
   }
 
   function toggleSidebar() {
+    if (isClientPortalView()) return;
     if (sidebar.classList.contains('collapsed')) openSidebar();
     else closeSidebar();
   }
@@ -1071,10 +1159,41 @@
     inviteBtn.querySelector('span').textContent = isLogged ? 'Enviar Convite' : 'Entrar para convidar';
     loginBtn.querySelector('span').textContent = isLogged ? 'Logado' : 'Entrar';
     logoutBtn.querySelector('span').textContent = isLogged ? 'Sair' : 'Sair';
+    saveClientBtn.disabled = !currentWorkspaceId;
+    applyRoleInterface();
   }
 
   function getCurrentWorkspaceName() {
     return workspaceItems.find(workspace => workspace.id === currentWorkspaceId)?.name || '';
+  }
+
+  function isClientPortalView() {
+    return Boolean(supabaseSession) && currentUserRole !== 'admin';
+  }
+
+  function applyRoleInterface() {
+    const clientView = isClientPortalView();
+    const workspaceName = getCurrentWorkspaceName() || 'Sua Empresa';
+
+    document.body.classList.toggle('client-view', clientView);
+    document.body.classList.toggle('admin-view', !clientView);
+
+    if (clientView) {
+      closeSidebar();
+    }
+
+    sidebar.setAttribute('aria-hidden', clientView ? 'true' : String(sidebar.classList.contains('collapsed')));
+    sidebarBackdrop.setAttribute('aria-hidden', clientView ? 'true' : String(!sidebarBackdrop.classList.contains('show')));
+
+    brandTitleEl.textContent = clientView ? workspaceName : 'Mind Map Editor';
+    brandSubtitleEl.textContent = clientView
+      ? 'Mapa mental compartilhado com sua empresa. Edite os nos e clique em salvar para registrar as alteracoes.'
+      : 'Organize ideias, projetos e processos com visual personalizavel.';
+
+    mapTitleInput.disabled = clientView;
+    if (clientView) {
+      mapTitleInput.value = workspaceName;
+    }
   }
 
   function openAuthModal(prefillEmail) {
@@ -1169,6 +1288,7 @@
       workspaceDropdown.appendChild(option);
       currentWorkspaceId = '';
       renderMapList([]);
+      updateAuthUi();
       return;
     }
 
@@ -1216,6 +1336,7 @@
 
   async function loadWorkspaces() {
     if (!supabaseClient || !supabaseSession) {
+      currentUserRole = 'admin';
       workspaceItems = LOCAL_WORKSPACES;
       currentWorkspaceId = currentWorkspaceId || workspaceItems[0].id;
       renderWorkspaceOptions();
@@ -1336,7 +1457,7 @@
 
     const { data, error } = await supabaseClient
       .from('mindmaps')
-      .select('id, title, updated_at')
+      .select(isClientPortalView() ? 'id, title, updated_at, map_data' : 'id, title, updated_at')
       .eq('workspace_id', workspaceId)
       .order('updated_at', { ascending: false });
 
@@ -1347,6 +1468,32 @@
     }
 
     renderMapList(data || []);
+
+    if (isClientPortalView()) {
+      const latestMap = (data || [])[0];
+      if (latestMap && latestMap.map_data) {
+        currentMapId = latestMap.id;
+        currentMapTitle = latestMap.title || getCurrentWorkspaceName() || 'Mapa sem titulo';
+        mapTitleInput.value = currentMapTitle;
+        applyMapPayload(latestMap.map_data);
+      } else {
+        currentMapId = null;
+        currentMapTitle = getCurrentWorkspaceName() || 'Mapa sem titulo';
+        mapTitleInput.value = currentMapTitle;
+        tree = {
+          id: 'root',
+          text: currentMapTitle,
+          level: 0,
+          x: 0,
+          y: 0,
+          collapsed: false,
+          children: []
+        };
+        view = { tx: 340, ty: 360, scale: 0.7 };
+        hideNodeMenu();
+        render();
+      }
+    }
   }
 
   async function openMindmap(mapId) {
@@ -1491,6 +1638,7 @@
     }
     await supabaseClient.auth.signOut();
     supabaseSession = null;
+    currentUserRole = 'admin';
     currentWorkspaceId = '';
     currentMapId = null;
     attemptedWorkspaceBootstrap = false;
@@ -1951,6 +2099,7 @@
   });
   document.getElementById('btn-new-map').addEventListener('click', createNewMindmap);
   document.getElementById('btn-save-map').addEventListener('click', saveCurrentMindmap);
+  saveClientBtn.addEventListener('click', saveCurrentMindmap);
   document.getElementById('btn-invite-member').addEventListener('click', inviteWorkspaceMember);
   inviteEmailInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') inviteWorkspaceMember();
