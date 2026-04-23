@@ -1773,7 +1773,9 @@
     const data = await response.json().catch(() => null);
     if (!response.ok) {
       const message = data && data.error ? data.error : 'Erro ao gerar mapa.';
-      throw new Error(message);
+      const details = data && data.details ? '\n\nDetalhes: ' + data.details : '';
+      const model = data && data.model ? '\nModelo: ' + data.model : '';
+      throw new Error(message + model + details);
     }
 
     return typeof data === 'string' ? data : JSON.stringify(data);

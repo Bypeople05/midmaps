@@ -18,6 +18,8 @@ Crie um arquivo `.env` ou defina a variável no terminal:
 ANTHROPIC_API_KEY=sk-ant-api03-sua-chave-aqui
 ```
 
+No Coolify, coloque `ANTHROPIC_API_KEY` no campo **Name** e somente a chave `sk-ant-api03-...` no campo **Value**. Nao cole `ANTHROPIC_API_KEY=...` inteiro dentro do valor.
+
 Depois rode:
 
 ```bash

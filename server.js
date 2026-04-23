@@ -40,6 +40,43 @@ function normalizeSupabaseUrl(value) {
   }
 }
 
+function cleanEnvValue(value, name) {
+  let cleaned = String(value || '').trim();
+  if (!cleaned) return '';
+  cleaned = cleaned.replace(/^['"]|['"]$/g, '').trim();
+  const prefix = `${name}=`;
+  if (cleaned.startsWith(prefix)) {
+    cleaned = cleaned.slice(prefix.length).trim().replace(/^['"]|['"]$/g, '').trim();
+  }
+  return cleaned;
+}
+
+function getAnthropicApiKey() {
+  return cleanEnvValue(process.env.ANTHROPIC_API_KEY, 'ANTHROPIC_API_KEY');
+}
+
+function getAnthropicModel() {
+  return cleanEnvValue(process.env.ANTHROPIC_MODEL, 'ANTHROPIC_MODEL') || 'claude-sonnet-4-20250514';
+}
+
+function parseJsonSafely(text) {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getAnthropicErrorMessage(status, payload, rawBody) {
+  const details = payload?.error?.message || payload?.message || rawBody?.substring(0, 500) || '';
+  if (status === 401) return { error: 'Chave da Anthropic invalida ou ausente.', details };
+  if (status === 403) return { error: 'Chave da Anthropic sem permissao para este recurso/modelo.', details };
+  if (status === 404) return { error: 'Modelo Anthropic nao encontrado. Verifique ANTHROPIC_MODEL.', details };
+  if (status === 429) return { error: 'Limite da Anthropic atingido ou sem creditos suficientes.', details };
+  if (status >= 500) return { error: 'Anthropic indisponivel no momento.', details };
+  return { error: `Erro na API Anthropic: ${status}`, details };
+}
+
 function sendJson(res, status, payload, headers = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -116,7 +153,10 @@ FORMATO DE RESPOSTA (retorne APENAS o JSON, sem markdown, sem explicação):
 }
 
 async function generateMindmap(req, res, corsHeaders) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const anthropicApiKey = getAnthropicApiKey();
+  const anthropicModel = getAnthropicModel();
+
+  if (!anthropicApiKey) {
     sendJson(res, 500, {
       error: 'Backend não configurado: falta ANTHROPIC_API_KEY nas variáveis de ambiente.'
     }, corsHeaders);
@@ -145,11 +185,11 @@ async function generateMindmap(req, res, corsHeaders) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'x-api-key': anthropicApiKey,
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+      model: anthropicModel,
       max_tokens: 4000,
       messages: [{ role: 'user', content: buildPrompt(text) }]
     })
@@ -158,14 +198,26 @@ async function generateMindmap(req, res, corsHeaders) {
   const responseBody = await anthropicResponse.text();
 
   if (!anthropicResponse.ok) {
+    const payload = parseJsonSafely(responseBody);
+    const errorPayload = getAnthropicErrorMessage(anthropicResponse.status, payload, responseBody);
     sendJson(res, 502, {
-      error: `Erro na API Anthropic: ${anthropicResponse.status}`,
-      details: responseBody.substring(0, 300)
+      ...errorPayload,
+      status: anthropicResponse.status,
+      model: anthropicModel
     }, corsHeaders);
     return;
   }
 
-  const data = JSON.parse(responseBody);
+  const data = parseJsonSafely(responseBody);
+  if (!data || !Array.isArray(data.content)) {
+    sendJson(res, 502, {
+      error: 'Resposta invalida da Anthropic.',
+      details: responseBody.substring(0, 500),
+      model: anthropicModel
+    }, corsHeaders);
+    return;
+  }
+
   const responseText = (data.content || [])
     .filter(block => block.type === 'text')
     .map(block => block.text)
