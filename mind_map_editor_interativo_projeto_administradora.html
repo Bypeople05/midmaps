@@ -244,6 +244,7 @@
       display: grid;
       gap: 8px;
     }
+    .auth-panel { display: none; }
     .auth-status {
       color: var(--text-muted);
       font-size: 12px;
@@ -277,6 +278,25 @@
       gap: 10px;
       flex-wrap: wrap;
       margin-left: auto;
+    }
+    .session-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 12px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid rgba(216,228,236,0.94);
+      border-radius: 14px;
+      color: var(--text-muted);
+      font-size: 12px;
+      box-shadow: 0 14px 34px rgba(32, 87, 106, 0.08);
+      white-space: nowrap;
+    }
+    .session-pill svg {
+      width: 16px;
+      height: 16px;
+      color: var(--brand-teal);
     }
     .brand {
       display: flex;
@@ -521,6 +541,18 @@
       font-size: 21px;
       letter-spacing: 0;
     }
+    .auth-modal-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .auth-modal-brand img {
+      width: min(230px, 72%);
+      height: auto;
+      object-fit: contain;
+      mix-blend-mode: multiply;
+    }
     .modal p {
       margin: 0 0 14px;
       color: var(--text-muted);
@@ -595,6 +627,26 @@
     }
     body.presentation-mode .presentation-exit {
       display: inline-flex;
+    }
+    body.logged-out {
+      overflow: hidden;
+    }
+    body.logged-out .sidebar,
+    body.logged-out .sidebar-toggle,
+    body.logged-out .app-shell {
+      filter: blur(10px);
+      opacity: 0.16;
+      pointer-events: none;
+      user-select: none;
+    }
+    body.logged-out .modal-overlay#auth-modal {
+      display: flex;
+      z-index: 1200;
+      background: rgba(12, 28, 38, 0.62);
+      backdrop-filter: blur(12px);
+    }
+    body.logged-out .modal-overlay#auth-modal .modal {
+      width: min(520px, calc(100% - 28px));
     }
     body.client-view .sidebar,
     body.client-view .sidebar-toggle,
@@ -770,6 +822,13 @@
     </div>
   </div>
   <div class="topbar-actions">
+    <div id="session-pill" class="session-pill is-hidden">
+      <i data-lucide="shield-check"></i>
+      <span id="session-pill-text">Nao conectado</span>
+    </div>
+    <button id="btn-logout-top" class="icon-btn is-hidden" type="button" title="Sair da conta" aria-label="Sair da conta">
+      <i data-lucide="log-out"></i>
+    </button>
     <button id="btn-save-client" class="primary client-only" type="button">
       <i data-lucide="cloud"></i>
       <span>Salvar</span>
@@ -883,6 +942,9 @@
 
 <div class="modal-overlay" id="auth-modal" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <div class="auth-modal-brand">
+      <img src="assets/by-people-logo.png" alt="By People">
+    </div>
     <h2 id="auth-modal-title">Entrar na sua conta</h2>
     <p>Entre com email e senha para administrar clientes, workspaces e mapas. A sessao fica salva neste navegador para voce continuar logado.</p>
     <input id="auth-modal-email" type="email" placeholder="email@empresa.com" style="width:100%; min-height:44px; padding:11px 13px; border:1px solid var(--border); border-radius:12px; font:inherit;">
@@ -1000,6 +1062,7 @@
   const authModalStatus = document.getElementById('auth-modal-status');
   const authModalMagicLink = document.getElementById('auth-modal-magic-link');
   const authModalSubmit = document.getElementById('auth-modal-submit');
+  const authModalCancel = document.getElementById('auth-modal-cancel');
   const nodeMenu = document.getElementById('node-menu');
   const nodeBgColor = document.getElementById('node-bg-color');
   const nodeTextColor = document.getElementById('node-text-color');
@@ -1022,6 +1085,9 @@
   const brandSubtitleEl = document.getElementById('brand-subtitle');
   const loginBtn = document.getElementById('btn-login');
   const logoutBtn = document.getElementById('btn-logout');
+  const logoutTopBtn = document.getElementById('btn-logout-top');
+  const sessionPill = document.getElementById('session-pill');
+  const sessionPillText = document.getElementById('session-pill-text');
   const saveClientBtn = document.getElementById('btn-save-client');
 
   const DEFAULT_TREE = {
@@ -1220,10 +1286,17 @@
     const isLogged = Boolean(supabaseSession);
     const inviteBtn = document.getElementById('btn-invite-member');
     const isCloudWorkspace = Boolean(currentWorkspaceId);
-    authEmail.classList.toggle('is-hidden', isLogged || !hasSupabase);
+    document.body.classList.toggle('logged-out', hasSupabase && !isLogged);
+    authEmail.classList.add('is-hidden');
     loginBtn.disabled = !hasSupabase || isLogged;
     logoutBtn.disabled = !hasSupabase || !isLogged;
-    inviteBtn.disabled = isLogged && !isCloudWorkspace;
+    logoutTopBtn.disabled = !hasSupabase || !isLogged;
+    logoutTopBtn.classList.toggle('is-hidden', !isLogged);
+    sessionPill.classList.toggle('is-hidden', !isLogged);
+    sessionPillText.textContent = isLogged
+      ? (supabaseSession.user.email + (currentUserRole === 'admin' ? ' · admin' : ''))
+      : 'Nao conectado';
+    inviteBtn.disabled = !isLogged || !isCloudWorkspace;
     inviteBtn.title = !hasSupabase
       ? 'Configure o Supabase no Coolify para enviar convites.'
       : (!isLogged ? 'Entre com sua conta para enviar o convite.' : (isCloudWorkspace ? 'Enviar convite para este workspace.' : 'Selecione um workspace salvo na nuvem.'));
@@ -1238,6 +1311,13 @@
     showCreateClientBtn.textContent = !hasSupabase
       ? 'Novo cliente'
       : (!isLogged ? 'Entrar para criar' : 'Novo cliente');
+    authModalCancel.classList.toggle('is-hidden', hasSupabase && !isLogged);
+    if (hasSupabase && !isLogged) {
+      authModal.classList.add('show');
+      authModal.setAttribute('aria-hidden', 'false');
+    } else if (isLogged) {
+      closeAuthModal(true);
+    }
     applyRoleInterface();
   }
 
@@ -1285,10 +1365,6 @@
       alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify e faca redeploy para ativar login.');
       return;
     }
-    if (supabaseSession) {
-      showStatus('Voce ja esta logado.', 2200);
-      return;
-    }
     const suggestedEmail = typeof prefillEmail === 'string' ? prefillEmail : '';
     authModalEmail.value = suggestedEmail || authEmail.value.trim() || inviteEmailInput.value.trim();
     authModalPassword.value = '';
@@ -1304,7 +1380,8 @@
     }, 80);
   }
 
-  function closeAuthModal() {
+  function closeAuthModal(force) {
+    if (!force && !supabaseSession) return;
     authModal.classList.remove('show');
     authModal.setAttribute('aria-hidden', 'true');
   }
@@ -1750,7 +1827,7 @@
     authModalPassword.value = '';
     authModalStatus.textContent = 'Login realizado com sucesso.';
     setAuthStatus('Conectado como ' + email + '. Sua sessao permanece ativa neste navegador.');
-    closeAuthModal();
+    closeAuthModal(true);
     showStatus('Login realizado.', 2200);
   }
 
@@ -1795,15 +1872,24 @@
       updateAuthUi();
       return;
     }
-    await supabaseClient.auth.signOut();
+    const previousEmail = supabaseSession.user?.email || authEmail.value.trim();
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+      alert('Nao foi possivel sair da conta:\n\n' + error.message);
+      return;
+    }
     supabaseSession = null;
     currentUserRole = 'admin';
     currentWorkspaceId = '';
     currentMapId = null;
     currentMapTitle = 'Mapa sem titulo';
     mapTitleInput.value = currentMapTitle;
+    authEmail.value = previousEmail;
     setAuthStatus('Voce saiu da conta. Entre novamente para carregar clientes e mapas.');
     hideCreateClientPanel();
+    closeSidebar();
+    openAuthModal(previousEmail);
+    showStatus('Sessao encerrada.', 2200);
     updateAuthUi();
     await loadWorkspaces();
   }
@@ -2279,7 +2365,8 @@
   });
   loginBtn.addEventListener('click', openAuthModal);
   logoutBtn.addEventListener('click', signOut);
-  document.getElementById('auth-modal-cancel').addEventListener('click', closeAuthModal);
+  logoutTopBtn.addEventListener('click', signOut);
+  document.getElementById('auth-modal-cancel').addEventListener('click', () => closeAuthModal());
   authModal.addEventListener('click', (e) => {
     if (e.target === authModal) closeAuthModal();
   });
