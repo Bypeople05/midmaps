@@ -1137,7 +1137,19 @@
   }
 
   function showCreateClientPanel() {
-    if (currentUserRole !== 'admin') return;
+    if (!supabaseClient) {
+      alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify para ativar a criacao de clientes.');
+      return;
+    }
+    if (!supabaseSession) {
+      openAuthModal(authEmail.value.trim());
+      showStatus('Entre com sua conta de admin para criar clientes.', 2600);
+      return;
+    }
+    if (currentUserRole !== 'admin') {
+      alert('Somente administradores podem criar novos clientes.');
+      return;
+    }
     createClientPanel.classList.remove('is-hidden');
     showCreateClientBtn.classList.add('is-hidden');
     setTimeout(() => createClientInput.focus(), 40);
@@ -1218,7 +1230,10 @@
     document.getElementById('btn-save-map').disabled = !canSave;
     saveClientBtn.disabled = !canSave;
     createClientBtn.disabled = !(hasSupabase && isLogged && currentUserRole === 'admin');
-    showCreateClientBtn.disabled = !(hasSupabase && isLogged && currentUserRole === 'admin');
+    showCreateClientBtn.disabled = !hasSupabase;
+    showCreateClientBtn.textContent = !hasSupabase
+      ? 'Novo cliente'
+      : (!isLogged ? 'Entrar para criar' : 'Novo cliente');
     applyRoleInterface();
   }
 
