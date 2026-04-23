@@ -1,6 +1,6 @@
 # Super Secretaria Mind Map
 
-Editor de mind map com geração por IA via Anthropic Claude. O app serve o HTML e o backend no mesmo serviço Node, pronto para Coolify.
+Editor de mind map com geração por IA via Google Gemini. O app serve o HTML e o backend no mesmo serviço Node, pronto para Coolify.
 
 ## Arquivos principais
 
@@ -15,10 +15,10 @@ Editor de mind map com geração por IA via Anthropic Claude. O app serve o HTML
 Crie um arquivo `.env` ou defina a variável no terminal:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-api03-sua-chave-aqui
+GEMINI_API_KEY=sua-chave-gemini-aqui
 ```
 
-No Coolify, coloque `ANTHROPIC_API_KEY` no campo **Name** e somente a chave `sk-ant-api03-...` no campo **Value**. Nao cole `ANTHROPIC_API_KEY=...` inteiro dentro do valor.
+No Coolify, coloque `GEMINI_API_KEY` no campo **Name** e somente a chave no campo **Value**. Nao cole `GEMINI_API_KEY=...` inteiro dentro do valor.
 
 Depois rode:
 
@@ -51,7 +51,7 @@ Port: 3000
 Variável obrigatória:
 
 ```txt
-ANTHROPIC_API_KEY=sk-ant-api03-sua-chave-aqui
+GEMINI_API_KEY=sua-chave-gemini-aqui
 ```
 
 Variáveis para salvar mapas no Supabase:
@@ -68,7 +68,7 @@ Variáveis opcionais:
 
 ```txt
 ALLOWED_ORIGINS=https://seu-dominio.com
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 ## Configuração no frontend
@@ -90,7 +90,7 @@ https://seu-dominio.com/api/generate-mindmap
 - `GET /`: abre o editor.
 - `GET /health`: verifica se o backend está online.
 - `GET /api/config`: entrega as chaves públicas do Supabase para o frontend.
-- `POST /api/generate-mindmap`: gera mind map.
+- `POST /api/generate-mindmap`: gera mind map via Gemini.
 - `POST /generate-mindmap`: alias do endpoint acima.
 
 Payload:

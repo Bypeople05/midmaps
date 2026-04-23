@@ -51,12 +51,13 @@ function cleanEnvValue(value, name) {
   return cleaned;
 }
 
-function getAnthropicApiKey() {
-  return cleanEnvValue(process.env.ANTHROPIC_API_KEY, 'ANTHROPIC_API_KEY');
+function getGeminiApiKey() {
+  return cleanEnvValue(process.env.GEMINI_API_KEY, 'GEMINI_API_KEY')
+    || cleanEnvValue(process.env.GOOGLE_API_KEY, 'GOOGLE_API_KEY');
 }
 
-function getAnthropicModel() {
-  return cleanEnvValue(process.env.ANTHROPIC_MODEL, 'ANTHROPIC_MODEL') || 'claude-sonnet-4-20250514';
+function getGeminiModel() {
+  return cleanEnvValue(process.env.GEMINI_MODEL, 'GEMINI_MODEL') || 'gemini-2.5-flash';
 }
 
 function parseJsonSafely(text) {
@@ -67,14 +68,15 @@ function parseJsonSafely(text) {
   }
 }
 
-function getAnthropicErrorMessage(status, payload, rawBody) {
+function getGeminiErrorMessage(status, payload, rawBody) {
   const details = payload?.error?.message || payload?.message || rawBody?.substring(0, 500) || '';
-  if (status === 401) return { error: 'Chave da Anthropic invalida ou ausente.', details };
-  if (status === 403) return { error: 'Chave da Anthropic sem permissao para este recurso/modelo.', details };
-  if (status === 404) return { error: 'Modelo Anthropic nao encontrado. Verifique ANTHROPIC_MODEL.', details };
-  if (status === 429) return { error: 'Limite da Anthropic atingido ou sem creditos suficientes.', details };
-  if (status >= 500) return { error: 'Anthropic indisponivel no momento.', details };
-  return { error: `Erro na API Anthropic: ${status}`, details };
+  if (status === 400) return { error: 'Requisicao invalida para o Gemini. Verifique o modelo e o formato.', details };
+  if (status === 401) return { error: 'Chave do Gemini invalida ou ausente.', details };
+  if (status === 403) return { error: 'Chave do Gemini sem permissao ou API nao habilitada.', details };
+  if (status === 404) return { error: 'Modelo Gemini nao encontrado. Verifique GEMINI_MODEL.', details };
+  if (status === 429) return { error: 'Limite do Gemini atingido ou quota sem creditos.', details };
+  if (status >= 500) return { error: 'Gemini indisponivel no momento.', details };
+  return { error: `Erro na API Gemini: ${status}`, details };
 }
 
 function sendJson(res, status, payload, headers = {}) {
@@ -153,12 +155,12 @@ FORMATO DE RESPOSTA (retorne APENAS o JSON, sem markdown, sem explicação):
 }
 
 async function generateMindmap(req, res, corsHeaders) {
-  const anthropicApiKey = getAnthropicApiKey();
-  const anthropicModel = getAnthropicModel();
+  const geminiApiKey = getGeminiApiKey();
+  const geminiModel = getGeminiModel();
 
-  if (!anthropicApiKey) {
+  if (!geminiApiKey) {
     sendJson(res, 500, {
-      error: 'Backend não configurado: falta ANTHROPIC_API_KEY nas variáveis de ambiente.'
+      error: 'Backend nao configurado: falta GEMINI_API_KEY nas variaveis de ambiente.'
     }, corsHeaders);
     return;
   }
@@ -181,47 +183,97 @@ async function generateMindmap(req, res, corsHeaders) {
     return;
   }
 
-  const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+  const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': anthropicApiKey,
-      'anthropic-version': '2023-06-01'
+      'x-goog-api-key': geminiApiKey
     },
     body: JSON.stringify({
-      model: anthropicModel,
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: buildPrompt(text) }]
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: buildPrompt(text) }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 4000,
+        responseMimeType: 'application/json',
+        responseJsonSchema: {
+          type: 'object',
+          properties: {
+            text: { type: 'string', description: 'Titulo central do mapa mental.' },
+            level: { type: 'integer', description: 'Nivel do no raiz. Deve ser 0.' },
+            children: {
+              type: 'array',
+              description: 'Ramos do mapa mental.',
+              items: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string' },
+                  level: { type: 'integer' },
+                  children: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        text: { type: 'string' },
+                        level: { type: 'integer' },
+                        children: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              text: { type: 'string' },
+                              level: { type: 'integer' },
+                              children: { type: 'array', items: { type: 'object' } }
+                            },
+                            required: ['text', 'level', 'children']
+                          }
+                        }
+                      },
+                      required: ['text', 'level', 'children']
+                    }
+                  }
+                },
+                required: ['text', 'level', 'children']
+              }
+            }
+          },
+          required: ['text', 'level', 'children']
+        }
+      }
     })
   });
 
-  const responseBody = await anthropicResponse.text();
+  const responseBody = await geminiResponse.text();
 
-  if (!anthropicResponse.ok) {
+  if (!geminiResponse.ok) {
     const payload = parseJsonSafely(responseBody);
-    const errorPayload = getAnthropicErrorMessage(anthropicResponse.status, payload, responseBody);
+    const errorPayload = getGeminiErrorMessage(geminiResponse.status, payload, responseBody);
     sendJson(res, 502, {
       ...errorPayload,
-      status: anthropicResponse.status,
-      model: anthropicModel
+      status: geminiResponse.status,
+      model: geminiModel
     }, corsHeaders);
     return;
   }
 
   const data = parseJsonSafely(responseBody);
-  if (!data || !Array.isArray(data.content)) {
+  const responseText = data?.candidates?.[0]?.content?.parts
+    ?.map(part => part.text || '')
+    .join('\n')
+    .trim();
+
+  if (!responseText) {
     sendJson(res, 502, {
-      error: 'Resposta invalida da Anthropic.',
+      error: 'Resposta invalida do Gemini.',
       details: responseBody.substring(0, 500),
-      model: anthropicModel
+      model: geminiModel
     }, corsHeaders);
     return;
   }
-
-  const responseText = (data.content || [])
-    .filter(block => block.type === 'text')
-    .map(block => block.text)
-    .join('\n');
 
   sendJson(res, 200, responseText, corsHeaders);
 }
@@ -402,7 +454,8 @@ const server = createServer(async (req, res) => {
       sendJson(res, 200, {
         status: 'ok',
         service: 'mindmap-generator',
-        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'
+        provider: 'gemini',
+        model: getGeminiModel()
       }, corsHeaders);
       return;
     }
