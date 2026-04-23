@@ -526,6 +526,24 @@
       backdrop-filter: blur(8px);
     }
     .modal-overlay.show { display: flex; }
+    .login-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1300;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background:
+        radial-gradient(circle at top left, rgba(104,188,192,0.24), transparent 34%),
+        linear-gradient(180deg, #f9fcfd 0%, #edf4f7 100%);
+    }
+    .login-screen.show { display: flex; }
+    .login-screen .modal {
+      width: min(520px, calc(100% - 28px));
+      padding: 28px;
+      box-shadow: 0 30px 80px rgba(21, 58, 74, 0.18);
+    }
     .modal {
       width: min(720px, 100%);
       max-height: 90vh;
@@ -630,26 +648,12 @@
     }
     body.logged-out {
       overflow: hidden;
+      padding: 0;
     }
     body.logged-out .sidebar,
     body.logged-out .sidebar-toggle,
     body.logged-out .app-shell {
-      opacity: 0;
-      pointer-events: none;
-      user-select: none;
-    }
-    body.logged-out .modal-overlay#auth-modal {
-      display: flex;
-      z-index: 1200;
-      background:
-        radial-gradient(circle at top left, rgba(104,188,192,0.22), transparent 34%),
-        linear-gradient(180deg, #f9fcfd 0%, #eef4f7 100%);
-      backdrop-filter: none;
-    }
-    body.logged-out .modal-overlay#auth-modal .modal {
-      width: min(520px, calc(100% - 28px));
-      padding: 28px;
-      box-shadow: 0 30px 80px rgba(21, 58, 74, 0.18);
+      display: none !important;
     }
     body.client-view .sidebar,
     body.client-view .sidebar-toggle,
@@ -943,7 +947,7 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="auth-modal" aria-hidden="true">
+<div class="login-screen" id="auth-modal" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
     <div class="auth-modal-brand">
       <img src="assets/by-people-logo.png" alt="By People">
