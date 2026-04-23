@@ -40,6 +40,22 @@
       font-family: Inter, "Segoe UI", Arial, sans-serif;
       min-height: 100vh;
     }
+    body.dark-theme {
+      --page-bg: #0f1720;
+      --panel-bg: #121b24;
+      --panel-soft: #16212b;
+      --canvas-bg: #0f1922;
+      --text-main: #e7eef5;
+      --text-muted: #98aaba;
+      --border: #263544;
+      --node-bg: #16222d;
+      --node-text: #edf5fb;
+      --node-border: #4f96ab;
+      --edge-color: #68bcc0;
+      background:
+        radial-gradient(circle at top left, rgba(47,143,200,0.20), transparent 32%),
+        linear-gradient(180deg, #091018 0%, #0d1720 42%, #101c25 100%);
+    }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -74,6 +90,17 @@
       opacity: 0.48;
       transform: none;
       box-shadow: none;
+    }
+    body.dark-theme button:not(.primary):not(.presentation-exit):not(.success):not(.text-btn) {
+      background: #16212b;
+      color: var(--text-main);
+      border-color: var(--border);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    }
+    body.dark-theme button:not(.primary):not(.presentation-exit):not(.success):not(.text-btn):hover {
+      background: #1c2a36;
+      border-color: #3a5365;
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
     }
     .app-shell {
       max-width: 1680px;
@@ -191,6 +218,7 @@
       transform: none;
       color: var(--brand-teal);
     }
+    body.dark-theme .text-btn { color: #7fd0d2; }
     .create-client-panel {
       display: grid;
       gap: 8px;
@@ -259,6 +287,7 @@
       background: rgba(11, 30, 42, 0.16);
     }
     .sidebar-backdrop.show { display: block; }
+    body.dark-theme .sidebar-backdrop { background: rgba(2, 8, 14, 0.48); }
     .topbar {
       display: flex;
       align-items: center;
@@ -327,6 +356,59 @@
       margin: 5px 0 0;
       font-size: 13px;
       color: var(--text-muted);
+    }
+    body.dark-theme .sidebar-toggle,
+    body.dark-theme .sidebar,
+    body.dark-theme .topbar,
+    body.dark-theme .toolbar,
+    body.dark-theme .hint-panel,
+    body.dark-theme .session-pill,
+    body.dark-theme .modal,
+    body.dark-theme .node-menu,
+    body.dark-theme #zoom-controls,
+    body.dark-theme #hint,
+    body.dark-theme .map-list li,
+    body.dark-theme .create-client-panel,
+    body.dark-theme .status-badge {
+      background: rgba(18,27,36,0.92);
+      border-color: rgba(38,53,68,0.96);
+      color: var(--text-main);
+    }
+    body.dark-theme .brand-logo {
+      mix-blend-mode: normal;
+      filter: brightness(1.08);
+    }
+    body.dark-theme .sidebar select,
+    body.dark-theme .sidebar input[type="text"],
+    body.dark-theme .sidebar input[type="email"],
+    body.dark-theme .modal input[type="email"],
+    body.dark-theme .modal input[type="password"],
+    body.dark-theme .modal textarea {
+      background: rgba(12,19,26,0.94);
+      border-color: var(--border);
+      color: var(--text-main);
+    }
+    body.dark-theme .map-list li:hover,
+    body.dark-theme .map-list li.active {
+      background: #1b2a36;
+      border-color: #466579;
+    }
+    body.dark-theme .create-client-panel {
+      background: rgba(21,33,43,0.9);
+      border-color: rgba(104,188,192,0.35);
+    }
+    body.dark-theme .login-screen {
+      background:
+        radial-gradient(circle at top left, rgba(47,143,200,0.22), transparent 32%),
+        linear-gradient(180deg, #091018 0%, #101822 100%);
+    }
+    body.dark-theme .auth-modal-brand img {
+      mix-blend-mode: normal;
+      filter: brightness(1.08);
+    }
+    body.dark-theme .mm-text[contenteditable="true"] {
+      background: rgba(255,255,255,0.08);
+      color: var(--node-text);
     }
     .client-only { display: none !important; }
     .toolbar {
@@ -731,6 +813,15 @@
     body.client-view .node-menu {
       box-shadow: 0 20px 42px rgba(24, 68, 85, 0.16);
     }
+    body.dark-theme.client-view {
+      background:
+        radial-gradient(circle at top left, rgba(47,143,200,0.18), transparent 30%),
+        linear-gradient(180deg, #091018 0%, #0f1720 50%, #101c25 100%);
+    }
+    body.dark-theme.client-view .brand-copy {
+      background: linear-gradient(135deg, rgba(47,143,200,0.16), rgba(104,188,192,0.16));
+      border-color: rgba(79,150,171,0.34);
+    }
   </style>
 </head>
 <body>
@@ -836,6 +927,10 @@
     </div>
   </div>
   <div class="topbar-actions">
+    <button id="btn-theme-toggle" type="button" title="Ativar modo escuro" aria-label="Ativar modo escuro">
+      <i data-lucide="moon-star"></i>
+      <span>Dark</span>
+    </button>
     <div id="session-pill" class="session-pill is-hidden">
       <i data-lucide="shield-check"></i>
       <span id="session-pill-text">Nao conectado</span>
@@ -1097,6 +1192,7 @@
   const inviteEmailInput = document.getElementById('invite-email-input');
   const brandTitleEl = document.getElementById('brand-title');
   const brandSubtitleEl = document.getElementById('brand-subtitle');
+  const themeToggleBtn = document.getElementById('btn-theme-toggle');
   const loginBtn = document.getElementById('btn-login');
   const logoutBtn = document.getElementById('btn-logout');
   const logoutTopBtn = document.getElementById('btn-logout-top');
@@ -1200,6 +1296,39 @@
   let currentMapId = null;
   let currentMapTitle = 'Mapa sem titulo';
   let currentUserRole = 'admin';
+  const THEME_STORAGE_KEY = 'mindmap_theme_v1';
+
+  function getStoredTheme() {
+    try {
+      return localStorage.getItem(THEME_STORAGE_KEY) || 'light';
+    } catch (err) {
+      return 'light';
+    }
+  }
+
+  function updateThemeToggle() {
+    const isDark = document.body.classList.contains('dark-theme');
+    themeToggleBtn.innerHTML = isDark
+      ? '<i data-lucide="sun-medium"></i><span>Claro</span>'
+      : '<i data-lucide="moon-star"></i><span>Dark</span>';
+    themeToggleBtn.title = isDark ? 'Ativar modo claro' : 'Ativar modo escuro';
+    themeToggleBtn.setAttribute('aria-label', themeToggleBtn.title);
+    refreshIcons();
+  }
+
+  function applyTheme(theme) {
+    const nextTheme = theme === 'dark' ? 'dark' : 'light';
+    document.body.classList.toggle('dark-theme', nextTheme === 'dark');
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    } catch (err) {}
+    updateThemeToggle();
+    drawEdges();
+  }
+
+  function toggleTheme() {
+    applyTheme(document.body.classList.contains('dark-theme') ? 'light' : 'dark');
+  }
 
   function showStatus(message, duration) {
     statusBadge.textContent = message;
@@ -2356,6 +2485,7 @@
   document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
   document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
   sidebarBackdrop.addEventListener('click', closeSidebar);
+  themeToggleBtn.addEventListener('click', toggleTheme);
   showCreateClientBtn.addEventListener('click', showCreateClientPanel);
   cancelCreateClientBtn.addEventListener('click', hideCreateClientPanel);
   createClientBtn.addEventListener('click', createWorkspaceWithMember);
@@ -2595,6 +2725,7 @@
   window.addEventListener('resize', drawEdges);
 
   mapTitleInput.value = currentMapTitle;
+  applyTheme(getStoredTheme());
   render();
   refreshIcons();
   initSupabase();
