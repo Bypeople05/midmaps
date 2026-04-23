@@ -884,14 +884,16 @@
 <div class="modal-overlay" id="auth-modal" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
     <h2 id="auth-modal-title">Entrar na sua conta</h2>
-    <p>Digite seu email para receber um link magico de acesso. Depois de confirmar, seus workspaces e mapas salvos no Supabase aparecem na sidebar.</p>
+    <p>Entre com email e senha para administrar clientes, workspaces e mapas. A sessao fica salva neste navegador para voce continuar logado.</p>
     <input id="auth-modal-email" type="email" placeholder="email@empresa.com" style="width:100%; min-height:44px; padding:11px 13px; border:1px solid var(--border); border-radius:12px; font:inherit;">
+    <input id="auth-modal-password" type="password" placeholder="Sua senha" style="width:100%; min-height:44px; margin-top:10px; padding:11px 13px; border:1px solid var(--border); border-radius:12px; font:inherit;">
     <div class="modal-meta">
-      <span id="auth-modal-status">Sem senha. O acesso chega por email.</span>
+      <span id="auth-modal-status">Use sua conta de administrador. O link magico fica como opcional.</span>
     </div>
     <div class="modal-actions">
       <button id="auth-modal-cancel" type="button">Cancelar</button>
-      <button id="auth-modal-submit" class="primary" type="button">Enviar link de acesso</button>
+      <button id="auth-modal-magic-link" type="button">Enviar link</button>
+      <button id="auth-modal-submit" class="primary" type="button">Entrar com senha</button>
     </div>
   </div>
 </div>
@@ -994,7 +996,9 @@
   const aiCharCount = document.getElementById('ai-char-count');
   const authModal = document.getElementById('auth-modal');
   const authModalEmail = document.getElementById('auth-modal-email');
+  const authModalPassword = document.getElementById('auth-modal-password');
   const authModalStatus = document.getElementById('auth-modal-status');
+  const authModalMagicLink = document.getElementById('auth-modal-magic-link');
   const authModalSubmit = document.getElementById('auth-modal-submit');
   const nodeMenu = document.getElementById('node-menu');
   const nodeBgColor = document.getElementById('node-bg-color');
@@ -1287,10 +1291,17 @@
     }
     const suggestedEmail = typeof prefillEmail === 'string' ? prefillEmail : '';
     authModalEmail.value = suggestedEmail || authEmail.value.trim() || inviteEmailInput.value.trim();
-    authModalStatus.textContent = 'Sem senha. O acesso chega por email.';
+    authModalPassword.value = '';
+    authModalStatus.textContent = 'Entre com email e senha de administrador. O link por email fica como alternativa.';
     authModal.classList.add('show');
     authModal.setAttribute('aria-hidden', 'false');
-    setTimeout(() => authModalEmail.focus(), 80);
+    setTimeout(() => {
+      if (authModalEmail.value) {
+        authModalPassword.focus();
+      } else {
+        authModalEmail.focus();
+      }
+    }, 80);
   }
 
   function closeAuthModal() {
@@ -1701,26 +1712,72 @@
     showStatus('Novo mapa criado. Clique em Salvar para guardar.', 2600);
   }
 
-  async function signInWithEmail() {
+  function setAuthModalLoading(disabled) {
+    authModalSubmit.disabled = disabled;
+    authModalMagicLink.disabled = disabled;
+  }
+
+  async function signInWithPassword() {
     if (!supabaseClient) {
       alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify para ativar login.');
       return;
     }
-    const email = (authModalEmail.value.trim() || authEmail.value.trim());
+    const email = (authModalEmail.value.trim() || authEmail.value.trim()).toLowerCase();
+    const password = authModalPassword.value;
     if (!email) {
-      authModalStatus.textContent = 'Digite seu email para receber o link.';
+      authModalStatus.textContent = 'Digite o email da sua conta de administrador.';
       return;
     }
-    authModalSubmit.disabled = true;
+    if (!password) {
+      authModalStatus.textContent = 'Digite sua senha para entrar.';
+      return;
+    }
+
+    setAuthModalLoading(true);
+    authModalStatus.textContent = 'Entrando na sua conta...';
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    setAuthModalLoading(false);
+
+    if (error) {
+      const hint = /Invalid login credentials/i.test(error.message || '')
+        ? ' Confirme se a conta existe no Supabase Authentication e se a senha esta correta.'
+        : '';
+      authModalStatus.textContent = 'Erro: ' + error.message + hint;
+      return;
+    }
+
+    authEmail.value = email;
+    authModalPassword.value = '';
+    authModalStatus.textContent = 'Login realizado com sucesso.';
+    setAuthStatus('Conectado como ' + email + '. Sua sessao permanece ativa neste navegador.');
+    closeAuthModal();
+    showStatus('Login realizado.', 2200);
+  }
+
+  async function sendMagicLink() {
+    if (!supabaseClient) {
+      alert('Configure SUPABASE_URL e SUPABASE_ANON_KEY no Coolify para ativar login.');
+      return;
+    }
+    const email = (authModalEmail.value.trim() || authEmail.value.trim()).toLowerCase();
+    if (!email) {
+      authModalStatus.textContent = 'Digite seu email para enviar o link.';
+      return;
+    }
+
+    setAuthModalLoading(true);
     authModalStatus.textContent = 'Enviando link de acesso...';
     const emailRedirectTo = window.location.origin + window.location.pathname;
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
       options: { emailRedirectTo }
     });
-    authModalSubmit.disabled = false;
+    setAuthModalLoading(false);
     if (error) {
-      authModalStatus.textContent = 'Erro: ' + error.message;
+      const hint = /rate limit/i.test(error.message || '')
+        ? ' Aguarde alguns minutos ou entre com email e senha.'
+        : '';
+      authModalStatus.textContent = 'Erro: ' + error.message + hint;
       return;
     }
     authEmail.value = email;
@@ -1796,7 +1853,13 @@
   async function initSupabase() {
     const config = await loadPublicConfig();
     if (config.supabaseUrl && config.supabaseAnonKey && window.supabase) {
-      supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+      supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
       const { data } = await supabaseClient.auth.getSession();
       supabaseSession = data.session;
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
@@ -2220,9 +2283,19 @@
   authModal.addEventListener('click', (e) => {
     if (e.target === authModal) closeAuthModal();
   });
-  authModalSubmit.addEventListener('click', signInWithEmail);
+  authModalMagicLink.addEventListener('click', sendMagicLink);
+  authModalSubmit.addEventListener('click', signInWithPassword);
   authModalEmail.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') signInWithEmail();
+    if (e.key === 'Enter') {
+      if (authModalPassword.value) {
+        signInWithPassword();
+      } else {
+        authModalPassword.focus();
+      }
+    }
+  });
+  authModalPassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') signInWithPassword();
   });
   mapTitleInput.addEventListener('input', () => {
     currentMapTitle = mapTitleInput.value.trim() || 'Mapa sem titulo';
