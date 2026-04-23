@@ -1105,69 +1105,69 @@
   const saveClientBtn = document.getElementById('btn-save-client');
 
   const DEFAULT_TREE = {
-    id: 'root', text: 'Central Inteligente\nAdministradora de CondomÃ­nios', level: 0,
+    id: 'root', text: 'Central Inteligente\nAdministradora de Condomínios', level: 0,
     x: 0, y: 0, collapsed: false,
     children: [
       { id:'n1', text:'1. Dores do cliente', level:1, x:320, y:-520, collapsed:false, children:[
-        { id:'n1a', text:'SÃ­ndico na fila errada', level:2, x:560, y:-620, children:[] },
+        { id:'n1a', text:'Síndico na fila errada', level:2, x:560, y:-620, children:[] },
         { id:'n1b', text:'Financeiro fragmentado (8 pessoas)', level:2, x:560, y:-570, children:[] },
         { id:'n1c', text:'Documentos perdidos, multas', level:2, x:560, y:-520, children:[] },
-        { id:'n1d', text:'Consultas repetitivas Ã  equipe', level:2, x:560, y:-470, children:[] },
-        { id:'n1e', text:'Risco LGPD entre condomÃ­nios', level:2, x:560, y:-420, children:[] },
+        { id:'n1d', text:'Consultas repetitivas à equipe', level:2, x:560, y:-470, children:[] },
+        { id:'n1e', text:'Risco LGPD entre condomínios', level:2, x:560, y:-420, children:[] },
       ]},
       { id:'n2', text:'2. Estrutura da empresa', level:1, x:320, y:-360, collapsed:false, children:[
-        { id:'n2a', text:'Atendimento ao sÃ­ndico (premium)', level:2, x:560, y:-380, children:[] },
-        { id:'n2b', text:'Financeiro (gargalo crÃ­tico)', level:2, x:560, y:-340, children:[] },
+        { id:'n2a', text:'Atendimento ao síndico (premium)', level:2, x:560, y:-380, children:[] },
+        { id:'n2b', text:'Financeiro (gargalo crítico)', level:2, x:560, y:-340, children:[] },
         { id:'n2c', text:'Departamento Pessoal', level:2, x:560, y:-300, children:[] },
         { id:'n2d', text:'Operacional e gestores', level:2, x:560, y:-260, children:[] },
-        { id:'n2e', text:'ManutenÃ§Ãµes (Easy Alert)', level:2, x:560, y:-220, children:[] },
-        { id:'n2f', text:'RecepÃ§Ã£o e logÃ­stica hÃ­brida', level:2, x:560, y:-180, children:[] },
+        { id:'n2e', text:'Manutenções (Easy Alert)', level:2, x:560, y:-220, children:[] },
+        { id:'n2f', text:'Recepção e logística híbrida', level:2, x:560, y:-180, children:[] },
       ]},
-      { id:'n3', text:'3. SoluÃ§Ã£o proposta', level:1, x:320, y:-120, collapsed:false, children:[
-        { id:'n3a', text:'Agente Porteiro (autenticaÃ§Ã£o)', level:2, x:560, y:-150, children:[] },
+      { id:'n3', text:'3. Solução proposta', level:1, x:320, y:-120, collapsed:false, children:[
+        { id:'n3a', text:'Agente Porteiro (autenticação)', level:2, x:560, y:-150, children:[] },
         { id:'n3b', text:'Orquestrador Claude Sonnet 4.5', level:2, x:560, y:-110, children:[] },
         { id:'n3c', text:'Agentes especializados', level:2, x:560, y:-70, children:[
           { id:'n3c1', text:'Financeiro', level:3, x:820, y:-110, children:[] },
           { id:'n3c2', text:'Regimento', level:3, x:820, y:-75, children:[] },
-          { id:'n3c3', text:'NotificaÃ§Ãµes', level:3, x:820, y:-40, children:[] },
+          { id:'n3c3', text:'Notificações', level:3, x:820, y:-40, children:[] },
           { id:'n3c4', text:'Assembleias', level:3, x:820, y:-5, children:[] },
         ]},
-        { id:'n3d', text:'MCP Servers (SuperlÃ³gica, CRM)', level:2, x:560, y:-30, children:[] },
+        { id:'n3d', text:'MCP Servers (Superlógica, CRM)', level:2, x:560, y:-30, children:[] },
         { id:'n3e', text:'Painel operacional e filas', level:2, x:560, y:10, children:[] },
       ]},
       { id:'n4', text:'4. Stack Anthropic', level:1, x:320, y:90, collapsed:false, children:[
         { id:'n4a', text:'Claude Sonnet 4.5', level:2, x:560, y:60, children:[] },
-        { id:'n4b', text:'Claude Opus 4.7 (casos crÃ­ticos)', level:2, x:560, y:100, children:[] },
+        { id:'n4b', text:'Claude Opus 4.7 (casos críticos)', level:2, x:560, y:100, children:[] },
         { id:'n4c', text:'Agent SDK + Skills', level:2, x:560, y:140, children:[] },
         { id:'n4d', text:'MCP (Model Context Protocol)', level:2, x:560, y:180, children:[] },
         { id:'n4e', text:'Claude Code (dev acelerado)', level:2, x:560, y:220, children:[] },
       ]},
       { id:'n5', text:'5. Casos de uso', level:1, x:320, y:270, collapsed:false, children:[
-        { id:'n5a', text:'ProgramaÃ§Ã£o de pagamentos', level:2, x:560, y:260, children:[] },
-        { id:'n5b', text:'Consultas 24/7 inadimplÃªncia', level:2, x:560, y:300, children:[] },
-        { id:'n5c', text:'IA de regimento e convenÃ§Ã£o', level:2, x:560, y:340, children:[] },
-        { id:'n5d', text:'PrÃ©-agendamento de assembleias', level:2, x:560, y:380, children:[] },
-        { id:'n5e', text:'GeraÃ§Ã£o de notificaÃ§Ãµes', level:2, x:560, y:420, children:[] },
+        { id:'n5a', text:'Programação de pagamentos', level:2, x:560, y:260, children:[] },
+        { id:'n5b', text:'Consultas 24/7 inadimplência', level:2, x:560, y:300, children:[] },
+        { id:'n5c', text:'IA de regimento e convenção', level:2, x:560, y:340, children:[] },
+        { id:'n5d', text:'Pré-agendamento de assembleias', level:2, x:560, y:380, children:[] },
+        { id:'n5e', text:'Geração de notificações', level:2, x:560, y:420, children:[] },
       ]},
-      { id:'n6', text:'6. SeguranÃ§a e LGPD', level:1, x:320, y:460, collapsed:false, children:[
-        { id:'n6a', text:'Isolamento forte por condomÃ­nio', level:2, x:560, y:460, children:[] },
-        { id:'n6b', text:'VÃ­nculo CPF/condomÃ­nio', level:2, x:560, y:500, children:[] },
-        { id:'n6c', text:'Trilha de auditoria imutÃ¡vel', level:2, x:560, y:540, children:[] },
+      { id:'n6', text:'6. Segurança e LGPD', level:1, x:320, y:460, collapsed:false, children:[
+        { id:'n6a', text:'Isolamento forte por condomínio', level:2, x:560, y:460, children:[] },
+        { id:'n6b', text:'Vínculo CPF/condomínio', level:2, x:560, y:500, children:[] },
+        { id:'n6c', text:'Trilha de auditoria imutável', level:2, x:560, y:540, children:[] },
         { id:'n6d', text:'Human-in-the-loop', level:2, x:560, y:580, children:[] },
-        { id:'n6e', text:'Guardrails determinÃ­sticos', level:2, x:560, y:620, children:[] },
+        { id:'n6e', text:'Guardrails determinísticos', level:2, x:560, y:620, children:[] },
       ]},
       { id:'n7', text:'7. Roadmap', level:1, x:320, y:660, collapsed:false, children:[
-        { id:'n7a', text:'Fase 0 â€” descoberta', level:2, x:560, y:660, children:[] },
-        { id:'n7b', text:'Fase 1 â€” MVP canal + financeiro', level:2, x:560, y:700, children:[] },
-        { id:'n7c', text:'Fase 2 â€” regimento e relatÃ³rios', level:2, x:560, y:740, children:[] },
-        { id:'n7d', text:'Fase 3 â€” notificaÃ§Ãµes/assembleias', level:2, x:560, y:780, children:[] },
-        { id:'n7e', text:'Fase 4/5 â€” condÃ´mino e preditivo', level:2, x:560, y:820, children:[] },
+        { id:'n7a', text:'Fase 0 — descoberta', level:2, x:560, y:660, children:[] },
+        { id:'n7b', text:'Fase 1 — MVP canal + financeiro', level:2, x:560, y:700, children:[] },
+        { id:'n7c', text:'Fase 2 — regimento e relatórios', level:2, x:560, y:740, children:[] },
+        { id:'n7d', text:'Fase 3 — notificações/assembleias', level:2, x:560, y:780, children:[] },
+        { id:'n7e', text:'Fase 4/5 — condômino e preditivo', level:2, x:560, y:820, children:[] },
       ]},
       { id:'n8', text:'8. Ganhos e ROI', level:1, x:320, y:860, collapsed:false, children:[
         { id:'n8a', text:'-90% em multas por atraso', level:2, x:560, y:860, children:[] },
         { id:'n8b', text:'-40% horas em tarefas repetitivas', level:2, x:560, y:900, children:[] },
-        { id:'n8c', text:'70%+ sem intervenÃ§Ã£o humana', level:2, x:560, y:940, children:[] },
-        { id:'n8d', text:'ExperiÃªncia premium ao sÃ­ndico', level:2, x:560, y:980, children:[] },
+        { id:'n8c', text:'70%+ sem intervenção humana', level:2, x:560, y:940, children:[] },
+        { id:'n8d', text:'Experiência premium ao síndico', level:2, x:560, y:980, children:[] },
         { id:'n8e', text:'Payback em 6 a 10 meses', level:2, x:560, y:1020, children:[] },
       ]},
     ]
@@ -2099,7 +2099,7 @@
 
     const toggle = document.createElement('span');
     toggle.className = 'mm-toggle' + (hasChildren ? '' : ' empty');
-    toggle.textContent = node.collapsed ? 'â–¸' : 'â–¾';
+    toggle.textContent = node.collapsed ? '\u25b8' : '\u25be';
     toggle.title = node.collapsed ? 'Expandir' : 'Recolher';
     if (hasChildren) {
       toggle.addEventListener('click', (e) => {
@@ -2127,7 +2127,7 @@
     text.addEventListener('blur', () => {
       text.removeAttribute('contenteditable');
       el.classList.remove('editing');
-      node.text = text.textContent.trim() || 'Novo nÃ³';
+      node.text = text.textContent.trim() || 'Novo nó';
       text.textContent = node.text;
     });
     text.addEventListener('keydown', (e) => {
@@ -2542,7 +2542,7 @@
   });
 
   document.getElementById('btn-reset').addEventListener('click', () => {
-    if (confirm('Restaurar o mind map ao estado original? Todas as alteraÃ§Ãµes serÃ£o perdidas.')) {
+    if (confirm('Restaurar o mind map ao estado original? Todas as alterações serão perdidas.')) {
       tree = JSON.parse(JSON.stringify(DEFAULT_TREE));
       currentMapId = null;
       currentMapTitle = 'Mapa padrao';
@@ -2587,7 +2587,7 @@
         currentMapTitle = tree.text || 'Mapa importado';
         mapTitleInput.value = currentMapTitle;
         render();
-      } catch(err) { alert('JSON invÃ¡lido: ' + err.message); }
+      } catch(err) { alert('JSON inválido: ' + err.message); }
     };
     reader.readAsText(file);
   });
