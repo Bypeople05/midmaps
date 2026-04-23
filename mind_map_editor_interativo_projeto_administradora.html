@@ -651,8 +651,15 @@
       padding: 0;
     }
     body.logged-out .sidebar,
-    body.logged-out .sidebar-toggle,
+    body.logged-out .sidebar-toggle {
+      display: none !important;
+    }
     body.logged-out .app-shell {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+    body.logged-out .app-shell > :not(#auth-modal) {
       display: none !important;
     }
     body.client-view .sidebar,
