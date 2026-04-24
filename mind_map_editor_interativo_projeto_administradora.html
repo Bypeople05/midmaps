@@ -1349,6 +1349,24 @@
     statusBadge.style.display = 'none';
   }
 
+  function withTimeout(promise, timeoutMs, label) {
+    return new Promise((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        reject(new Error(label + ' demorou mais que o esperado.'));
+      }, timeoutMs);
+
+      Promise.resolve(promise)
+        .then((value) => {
+          window.clearTimeout(timer);
+          resolve(value);
+        })
+        .catch((error) => {
+          window.clearTimeout(timer);
+          reject(error);
+        });
+    });
+  }
+
   function isCloudMode() {
     return Boolean(supabaseClient && supabaseSession && currentWorkspaceId);
   }
@@ -1824,11 +1842,24 @@
       return;
     }
 
-    const { data, error } = await supabaseClient
-      .from('mindmaps')
-      .select(isClientPortalView() ? 'id, title, updated_at, map_data' : 'id, title, updated_at')
-      .eq('workspace_id', workspaceId)
-      .order('updated_at', { ascending: false });
+    let queryResult;
+    try {
+      queryResult = await withTimeout(
+        supabaseClient
+          .from('mindmaps')
+          .select(isClientPortalView() ? 'id, title, updated_at, map_data' : 'id, title, updated_at')
+          .eq('workspace_id', workspaceId)
+          .order('updated_at', { ascending: false }),
+        12000,
+        'O carregamento dos mapas'
+      );
+    } catch (err) {
+      console.error('Erro ao buscar mapas:', err);
+      mapList.innerHTML = '<li class="muted">Nao foi possivel carregar os mapas agora.</li>';
+      return;
+    }
+
+    const { data, error } = queryResult;
 
     if (error) {
       console.error('Erro ao buscar mapas:', error);
@@ -1900,32 +1931,48 @@
     const title = mapTitleInput.value.trim() || currentMapTitle || 'Mapa sem titulo';
     mapTitleInput.value = title;
     const payload = getMapPayload();
+    const saveButtons = [document.getElementById('btn-save-map'), saveClientBtn].filter(Boolean);
+    saveButtons.forEach((button) => { button.disabled = true; });
     showStatus('Salvando mapa...');
 
     try {
       if (currentMapId) {
-        const { error } = await supabaseClient
-          .from('mindmaps')
-          .update({ title, map_data: payload })
-          .eq('id', currentMapId);
+        const { error } = await withTimeout(
+          supabaseClient
+            .from('mindmaps')
+            .update({ title, map_data: payload })
+            .eq('id', currentMapId),
+          12000,
+          'O salvamento do mapa'
+        );
         if (error) throw error;
       } else {
-        const { data, error } = await supabaseClient
-          .from('mindmaps')
-          .insert({ workspace_id: currentWorkspaceId, title, map_data: payload })
-          .select('id')
-          .single();
+        const { data, error } = await withTimeout(
+          supabaseClient
+            .from('mindmaps')
+            .insert({ workspace_id: currentWorkspaceId, title, map_data: payload })
+            .select('id')
+            .single(),
+          12000,
+          'O salvamento do mapa'
+        );
         if (error) throw error;
         currentMapId = data.id;
       }
 
       currentMapTitle = title;
-      await loadMindmapsForWorkspace(currentWorkspaceId);
       showStatus('Mapa salvo no Supabase.', 2600);
+      loadMindmapsForWorkspace(currentWorkspaceId).catch((err) => {
+        console.error('Erro ao atualizar lista de mapas:', err);
+        if (mapList.textContent.includes('Carregando')) {
+          mapList.innerHTML = '<li class="muted">Mapa salvo. Reabra o workspace para atualizar a lista.</li>';
+        }
+      });
     } catch (err) {
       hideStatus();
       alert('Nao foi possivel salvar:\n\n' + err.message);
     } finally {
+      updateAuthUi();
       if (statusBadge.textContent === 'Salvando mapa...') {
         hideStatus();
       }
